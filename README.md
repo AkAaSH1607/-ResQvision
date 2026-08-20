@@ -55,13 +55,6 @@ pnpm install      # or: npm install
 pnpm dev          # or: npm run dev
 ```
 
-Create a `.env` file with your own Supabase credentials (create a free project at [supabase.com](https://supabase.com)):
-
-```env
-VITE_SUPABASE_URL=https://<your-project>.supabase.co
-VITE_SUPABASE_ANON_KEY=<your-anon-key>
-```
-
 Build for production:
 
 ```bash
