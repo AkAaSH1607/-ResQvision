@@ -126,7 +126,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
         bbox: source.bbox,
         colormap_applied: cmap,
         disaster_alert_fired: report?.result ? (report.result.severity === 'High' || report.result.severity === 'Critical') : false,
-        alert_message: report?.result ? `${report.result.severity} auto-change: ${report.result.affectedAreaPercent.toFixed(1)}%` : undefined,
+        alert_message: report?.result ? `AUTO: ${report.result.severity} change: ${report.result.affectedAreaPercent.toFixed(1)}%` : undefined,
         processing_time_ms: Math.round(performance.now() - startedAt),
       });
       loadHistory();
@@ -530,7 +530,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
                           {row.source_name.split('—')[1]?.trim() ?? row.source_name}
                         </div>
                         <div className="flex gap-2 mt-0.5 text-slate-600">
-                          <span>Cloud: {row.cloud_coverage?.toFixed(0) ?? '—'}%</span>
+                          <span>{t('lm.cloudCoverageLabel')} {row.cloud_coverage?.toFixed(0) ?? '—'}%</span>
                           {row.change_from_previous != null && (
                             <span style={{ color: row.change_from_previous >= 10 ? '#EF4444' : '#10B981' }}>
                               Δ{row.change_from_previous.toFixed(1)}%

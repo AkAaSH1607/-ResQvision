@@ -3,6 +3,7 @@ import { Bell, CheckCheck, AlertTriangle, Info, Flame, CloudRain, Leaf, Mail, Se
 import SubscribeForm from '../components/SubscribeForm';
 import { fetchAlerts, dismissAlert, dismissAllAlerts } from '../lib/supabase';
 import type { AlertRecord } from '../lib/types';
+import { useLanguage, formatAlertMessage } from '../lib/i18n';
 
 function alertIcon(type: string) {
   switch (type) {
@@ -29,7 +30,20 @@ const SEVERITY_STYLES: Record<string, string> = {
 function extractAffectedRegion(message: string): {
   zone: string; bbox: string; zonePercent: string; intensity: string; base: string;
 } | null {
-  const match = message.match(/ — worst affected zone: (.+?) \((\d+,\d+)→(\d+,\d+)\), ([\d.]+)% of zone pixels changed \(intensity ([\d.]+)\/255\)/);
+  // New format: " — worst affected zone: <name>, 68.5% changed"
+  let match = message.match(/ — worst affected zone: (.+?), ([\d.]+)% changed$/);
+  if (match) {
+    const [, zone, pct] = match;
+    return {
+      zone: zone.trim(),
+      bbox: '',
+      zonePercent: `${pct}%`,
+      intensity: '',
+      base: message.split(' — worst affected zone:')[0],
+    };
+  }
+  // Legacy format: " — worst affected zone: North-West (NW) (10,20)→(300,400), 68.5% of zone pixels changed (intensity 94.2/255)"
+  match = message.match(/ — worst affected zone: (.+?) \((\d+,\d+)→(\d+,\d+)\), ([\d.]+)% of zone pixels changed \(intensity ([\d.]+)\/255\)/);
   if (!match) return null;
   const [, zone, from, to, pct, intensity] = match;
   return {
@@ -69,6 +83,7 @@ function SubscribeFormBlock() {
 }
 
 export default function AlertsPage({ onAlertsChanged }: { onAlertsChanged: () => void }) {
+  const { t } = useLanguage();
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -141,7 +156,7 @@ export default function AlertsPage({ onAlertsChanged }: { onAlertsChanged: () =>
           >
             <div className="mt-0.5 flex-shrink-0">{alertIcon(alert.alert_type)}</div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-slate-200">{region ? region.base : alert.message}</div>
+              <div className="text-sm font-medium text-slate-200">{region ? formatAlertMessage(region.base, t) : formatAlertMessage(alert.message, t)}</div>
               {region && (
                 <div className="mt-2 rounded-lg border border-current/15 bg-black/15 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-1.5">

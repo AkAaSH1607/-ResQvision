@@ -176,11 +176,11 @@ export async function runAutoChangeDetection(
   if (result.severity === 'High' || result.severity === 'Critical') {
     const wz = result.region?.worstZone;
     const regionMsg = wz
-      ? ` — worst affected zone: ${wz.name} (${wz.bbox.x0},${wz.bbox.y0})→(${wz.bbox.x1},${wz.bbox.y1}), ${wz.changePercent}% of zone pixels changed (intensity ${wz.intensity}/255)`
+      ? ` — worst affected zone: ${wz.name}, ${wz.changePercent}% changed`
       : '';
     await saveDisasterAlert(
       null,
-      `AUTO: ${result.severity} change vs baseline ${baseline.fetch_date}: ${result.affectedAreaPercent.toFixed(1)}% of area affected${regionMsg}`,
+      `AUTO: change vs baseline ${baseline.fetch_date}: ${result.affectedAreaPercent.toFixed(1)}% of area affected${regionMsg}`,
       result.severity.toLowerCase()
     );
   }

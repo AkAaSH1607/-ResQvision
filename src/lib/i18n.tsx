@@ -70,6 +70,17 @@ const en: Record<string, string> = {
   'cd.baselineMsg': 'The first fetch stores the baseline frame. Frame-to-frame comparison starts on the next satellite pass.',
   'cd.fetchingMsg': 'Baseline stored. Fetching and comparing the fresh frame now…',
   'cd.comparing': 'Comparing',
+  'cd.msgChangeDetected': '{sev} change detected: {pct}% of area affected{zoneMsg}',
+  'cd.msgZone': ' — worst affected zone: {name}, {pct}% changed',
+  'cd.msgAutoBaseline': 'AUTO: change vs baseline {date}: {pct}% of area affected',
+  'cd.msgHighCloud': 'High cloud coverage detected: {pct}%',
+  'cd.msgHeatIsland': 'Urban heat island detected: {pct}%',
+  'cd.msgStorm': 'Storm conditions identified in satellite imagery',
+  'cd.msgVegetationLoss': 'Low vegetation coverage — possible drought or desertification',
+  'cd.msgAutoChange': 'AUTO: {sev} change: {pct}%',
+  'cd.msgBaselineVs': 'baseline {base} vs {cur}',
+  'ld.statusActive': '{sev} — {count} live alert{plural} active',
+  'lm.cloudCoverageLabel': 'Cloud:',
   'cd.dmgMap': 'Damage Map — most & least affected regions',
   'cd.mostAffected': 'Most affected zone',
   'cd.leastAffected': 'Least affected zone',
@@ -540,7 +551,8 @@ const ta: Record<string, string> = {
   'lm.hot': 'வெப்பமான நிலம்',
   'lm.cold': 'குளிரான நீர்/நிலம்',
   'lm.waterBodies': 'நீர் நிலைகள்',
-  'lm.cloudCover': 'மேக மூட்டம்',
+  'lm.cloudCoverageLabel': 'மேகமூட்டம்:',
+  'ld.statusActive': '{sev} தீவிரம் — {count} நேரடி எச்சரிக்கைகள் செயலில்',
   'lm.vegetationZones': 'தாவரவியல் பகுதிகள்',
   'lm.swathGaps': 'பாதை கிடைகள் (தரவு இல்லை)',
   'lm.howColored': 'இது எப்படி வண்ணமயமாக்கப்படுகிறது?',
@@ -733,6 +745,15 @@ const ta: Record<string, string> = {
 
   'cd.population': 'மக்கள்தொகை',
   'cd.populationExposed': 'பாதிப்புக்குள்',
+  'cd.msgChangeDetected': '{sev} மாற்றம் கணடறியப்பட்டது: {pct}% பரப்பளவு பாதித்துள்ளது{zoneMsg}',
+  'cd.msgZone': ' — மிகுத பாதித்த பருதி: {name}, {pct}% மாற்றம்',
+  'cd.msgAutoBaseline': 'தானியங்கி: முன்னாடைத்தளம் {date}: {pct}% பரப்பளவு பாதித்துள்ளது',
+  'cd.msgHighCloud': 'அதிக மேகமூட்டம் கணடறியப்பட்டது: {pct}%',
+  'cd.msgHeatIsland': 'நகர வெப்ப தீவு கணடறியப்பட்டது: {pct}%',
+  'cd.msgStorm': 'செயற்கோள் படத்தில் புயல் நிலை கணடறியப்பட்டது',
+  'cd.msgVegetationLoss': 'குறைவான தாவரவியல் போர்வு — வறற்சி அல்லது பாலைவனமயமாகுதல்',
+  'cd.msgAutoChange': 'தானியங்கி: {sev} மாற்றம்: {pct}%',
+  'cd.msgBaselineVs': 'முன்னாடைத்தளம் {base} vs {cur}',
   'cd.infrastructure': 'உள்கட்டமைப்பு ஆபத்து',
   'cd.severityLevel': 'தீவிரம்',
   'cd.areaKm2': 'பாதித்த பரப்பளவு',
@@ -789,7 +810,7 @@ export const translations: Record<Language, Record<string, string>> = { en, ta }
 interface LanguageContextType {
   lang: Language;
   setLang: (l: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType>({
@@ -797,6 +818,49 @@ const LanguageContext = createContext<LanguageContextType>({
   setLang: () => {},
   t: (key) => key,
 });
+
+/**
+ * Translates data-generated alert messages persisted in Supabase (English).
+ * Keeps numbers/coordinates in English; converts the readable template to Tamil.
+ */
+export function formatAlertMessage(message: string, t: (key: string, params?: Record<string, string | number>) => string, _lang?: string): string {
+  if (!message) return message;
+
+  // Newest format: "{sev} change detected: {pct}% of area affected — worst affected zone: {name}, {pct}% changed"
+  const m1 = message.match(/^(High|Critical|Medium|Low) change detected: ([\d.]+)% of area affected(?: — worst affected zone: (.+?), ([\d.]+)% changed)?$/);
+  if (m1) {
+    const sev = m1[1]; const pct = m1[2];
+    const zoneMsg = m1[3] ? t('cd.msgZone', { name: m1[3], pct: m1[4] }) : '';
+    return t('cd.msgChangeDetected', { sev, pct, zoneMsg });
+  }
+
+  // Auto baseline compare: "AUTO: change vs baseline {date}: {pct}% of area affected"
+  const m2 = message.match(/^AUTO: change vs baseline (.+?): ([\d.]+)% of area affected$/);
+  if (m2) return t('cd.msgAutoBaseline', { date: m2[1], pct: m2[2] });
+
+  // Auto change: "AUTO: {sev} change: {pct}%"
+  const m3 = message.match(/^AUTO: (High|Critical|Medium|Low) change: ([\d.]+)%$/);
+  if (m3) return t('cd.msgAutoChange', { sev: m3[1], pct: m3[2] });
+
+  // Colorize-page alerts
+  const cHigh = message.match(/^High cloud coverage detected: ([\d.]+)%$/);
+  if (cHigh) return t('cd.msgHighCloud', { pct: cHigh[1] });
+  const cHeat = message.match(/^Urban heat island detected: ([\d.]+)%$/);
+  if (cHeat) return t('cd.msgHeatIsland', { pct: cHeat[1] });
+  if (message === 'Storm conditions identified in satellite imagery') return t('cd.msgStorm');
+  if (message === 'Low vegetation coverage — possible drought or desertification') return t('cd.msgVegetationLoss');
+
+  // Older format with full bbox/intensity (still stored for earlier alerts)
+  const mOld = message.match(/^(.+?) change detected: ([\d.]+)% of area affected(?: — worst affected zone: (.+?) \(\d+,\d+\)→\(\d+,\d+\), ([\d.]+)% of zone pixels changed \(intensity [\d.]+\/255\))?$/);
+  if (mOld) {
+    const zoneMsg = mOld[3] ? t('cd.msgZone', { name: mOld[3], pct: mOld[4] }) : '';
+    return t('cd.msgChangeDetected', { sev: mOld[1], pct: mOld[2], zoneMsg });
+  }
+  const mOld2 = message.match(/^AUTO: ([\d-]+) change vs baseline ([^:]+): ([\d.]+)% of area affected/);
+  if (mOld2) return t('cd.msgAutoBaseline', { date: mOld2[2], pct: mOld2[3] });
+
+  return message;
+}
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>(() => {
@@ -810,8 +874,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLang = (l: Language) => setLangState(l);
 
-  // t(key) returns Tamil when available, otherwise the English value — never the raw key
-  const t = (key: string) => translations.ta[key] ?? en[key] ?? key;
+  // t(key, params) returns Tamil when available, otherwise the English value — never the raw key.
+  // {placeholder} values in the template are replaced from params.
+  const t = (key: string, params?: Record<string, string | number>) => {
+    let out = translations.ta[key] ?? en[key] ?? key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) out = out.split(`{${k}}`).join(String(v));
+    }
+    return out;
+  };
 
   return (
     <LanguageContext.Provider value={{ lang, setLang, t }}>

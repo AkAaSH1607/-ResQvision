@@ -5,12 +5,12 @@ import type { AlertRecord, AnalysisRecord } from '../lib/types';
 import { generateIncidentReport, type IncidentReport } from '../lib/incident-report';
 import { SATELLITE_SOURCES } from '../lib/live-feed';
 import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
-import { useLanguage } from '../lib/i18n';
+import { useLanguage, formatAlertMessage } from '../lib/i18n';
 
 const SEVERITY_META: Record<string, { color: string; labelKey: string; ring: string }> = {
   critical: { color: '#DC2626', labelKey: 'critical', ring: 'border-red-500/50' },
-  high: { color: '#EF4444', labelKey: 'critical', ring: 'border-red-400/40' },
-  medium: { color: '#F59E0B', labelKey: 'moderate', ring: 'border-amber-400/40' },
+  high: { color: '#EF4444', labelKey: 'high', ring: 'border-red-400/40' },
+  medium: { color: '#F59E0B', labelKey: 'medium', ring: 'border-amber-400/40' },
   low: { color: '#84CC16', labelKey: 'low', ring: 'border-lime-400/40' },
 };
 
@@ -44,7 +44,7 @@ const TA_TYPE_LABELS: Record<string, string> = {
 const TA_SEVERITY: Record<string, string> = {
   critical: 'மிக மோசமான தீவிரம்',
   high: 'உயர் தீவிரம்',
-  moderate: 'மிதமான தீவிரம்',
+  medium: 'மிதமான தீவிரம்',
   low: 'குறைந்த தீவிரம்',
 };
 
@@ -120,10 +120,12 @@ export default function LiveDisasterPage() {
   const activeAlerts = alerts.filter(a => !a.is_dismissed);
   const activeCount = activeAlerts.length;
   const criticalCount = activeAlerts.filter(a => a.severity === 'critical').length;
-  const totalAffectedPct = activeAlerts
-    .map(a => analyses.find(x => x.id === a.analysis_id)?.affected_area_percent)
-    .filter((p): p is number => typeof p === 'number')
-    .reduce((s, p) => s + p, 0);
+  const totalAffectedPct = Math.max(
+    ...activeAlerts
+      .map(a => analyses.find(x => x.id === a.analysis_id)?.affected_area_percent)
+      .filter((p): p is number => typeof p === 'number'),
+    0
+  );
   const maxSeverity = criticalCount > 0 ? 'critical' : activeAlerts.some(a => a.severity === 'high') ? 'high' : activeAlerts.some(a => a.severity === 'medium') ? 'medium' : activeAlerts.length > 0 ? 'low' : null;
 
   return (
@@ -137,7 +139,7 @@ export default function LiveDisasterPage() {
             <div className="text-[11px] text-slate-500 mt-0.5">
                   {maxSeverity ? (
                 <span style={{ color: SEVERITY_META[maxSeverity].color }}>
-                  {lang === 'ta' ? (TA_SEVERITY[maxSeverity] ?? maxSeverity) : SEVERITY_META[maxSeverity].labelKey.toUpperCase()} — {activeCount} {lang === 'ta' ? 'நேரடி எச்சரிக்கைகள்' : 'live alert'}{activeCount === 1 ? '' : 's'} தீவிரம்
+                  {lang === 'ta' ? t('ld.statusActive', { sev: TA_SEVERITY[maxSeverity] ?? maxSeverity, count: activeCount }) : t('ld.statusActive', { sev: SEVERITY_META[maxSeverity].labelKey.toUpperCase(), count: activeCount, plural: activeCount === 1 ? '' : 's' })}
                 </span>
               ) : (
                 <span className="text-green-400">{t('ld.noActive')}</span>
@@ -245,14 +247,17 @@ export default function LiveDisasterPage() {
                             className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
                             style={{ background: `${meta.color}22`, color: meta.color, border: `1px solid ${meta.color}55` }}
                           >
-                            {lang === 'ta' ? (TA_SEVERITY[meta.labelKey] ?? meta.labelKey.toUpperCase()) : meta.labelKey.toUpperCase()}
+                            {lang === 'ta' ? (TA_SEVERITY[alert.severity] ?? alert.severity.toUpperCase()) : alert.severity.toUpperCase()}
                           </span>
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-slate-200">
-                              {lang === 'ta' ? (TA_TYPE_LABELS[alert.alert_type] ?? alert.alert_type) : (TYPE_LABELS[alert.alert_type] ?? alert.alert_type)}
-                              {analysis && ` · ${analysis.image_name}`}
+                              {lang === 'ta' ? (TA_TYPE_LABELS[alert.alert_type] ?? alert.alert_type) : TYPE_LABELS[alert.alert_type] ?? alert.alert_type}
+                              {analysis && analysis.image_name.startsWith('AUTO: baseline ') && (() => {
+                                const parts = analysis.image_name.slice('AUTO: baseline '.length).split(' vs ');
+                                return <span> · {t('cd.msgBaselineVs', { base: parts[0] ?? '', cur: parts[1] ?? '' })}</span>;
+                              })()}
                             </div>
-                            <div className="text-[11px] text-slate-400 mt-0.5 break-words">{alert.message}</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5 break-words">{formatAlertMessage(alert.message, t, lang)}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -334,7 +339,7 @@ export default function LiveDisasterPage() {
           {Object.entries(SEVERITY_META).map(([sev, meta]) => (
             <div key={sev} className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `${meta.color}66`, border: `1px solid ${meta.color}` }} />
-              <span className="text-slate-400">{lang === 'ta' ? (TA_SEVERITY[meta.labelKey] ?? meta.labelKey) : meta.labelKey.toUpperCase()}</span>
+              <span className="text-slate-400">{lang === 'ta' ? (TA_SEVERITY[sev] ?? sev) : sev.toUpperCase()}</span>
             </div>
           ))}
         </div>

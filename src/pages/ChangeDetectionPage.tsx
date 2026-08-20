@@ -166,7 +166,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         if (record && (det.severity === 'High' || det.severity === 'Critical')) {
           const wz = det.region?.worstZone;
           const regionMsg = wz
-            ? ` — worst affected zone: ${wz.name} (${wz.bbox.x0},${wz.bbox.y0})→(${wz.bbox.x1},${wz.bbox.y1}), ${wz.changePercent}% of zone pixels changed (intensity ${wz.intensity}/255)`
+            ? ` — worst affected zone: ${wz.name}, ${wz.changePercent}% changed`
             : '';
           await saveAlerts(record.id, [{
             alert_type: 'change_detected',
