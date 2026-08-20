@@ -35,17 +35,17 @@ function timeAgo(iso: string): string {
 
 // Tamil labels for alert types & severity (English kept as key fallback)
 const TA_TYPE_LABELS: Record<string, string> = {
-  change_detected: 'மாற்றம் கணடறியப்பட்டது',
+  change_detected: 'மாற்றம் கண்டறியப்பட்டது',
   high_cloud: 'அதிக மேகமூட்டம்',
   heat_anomaly: 'வெப்ப முரண்பாடு',
   storm: 'புயல் எச்சரிக்கை',
   vegetation_loss: 'தாவரவியல் இழப்பு',
 };
 const TA_SEVERITY: Record<string, string> = {
-  critical: 'முக்கியமான',
-  high: 'உயர்',
-  moderate: 'மிதமான',
-  low: 'குறைவான',
+  critical: 'மிக மோசமான தீவிரம்',
+  high: 'உயர் தீவிரம்',
+  moderate: 'மிதமான தீவிரம்',
+  low: 'குறைந்த தீவிரம்',
 };
 
 export default function LiveDisasterPage() {
@@ -137,7 +137,7 @@ export default function LiveDisasterPage() {
             <div className="text-[11px] text-slate-500 mt-0.5">
                   {maxSeverity ? (
                 <span style={{ color: SEVERITY_META[maxSeverity].color }}>
-                  {lang === 'ta' ? TA_SEVERITY[maxSeverity] : SEVERITY_META[maxSeverity].labelKey.toUpperCase()} {lang === 'ta' ? 'நிலை நேரடியில்' : 'threat active'} — {activeCount} {lang === 'ta' ? 'நேரடி எச்சரிக்கைகள்' : 'live alert'}{activeCount === 1 ? '' : 's'}
+                  {lang === 'ta' ? (TA_SEVERITY[maxSeverity] ?? maxSeverity) : SEVERITY_META[maxSeverity].labelKey.toUpperCase()} — {activeCount} {lang === 'ta' ? 'நேரடி எச்சரிக்கைகள்' : 'live alert'}{activeCount === 1 ? '' : 's'} தீவிரம்
                 </span>
               ) : (
                 <span className="text-green-400">{t('ld.noActive')}</span>

@@ -95,9 +95,13 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.fillText(`MOST AFFECTED: ${wzLabel} (${wz.changePercent}% changed)`, wz.bbox.x0 * scale + 6, wz.bbox.y0 * scale + 18);
       }
 
-      // Overlay: least-affected zone = green translucent box with label
-      const least = det.region?.zones.slice().sort((a, b) => a.changePercent - b.changePercent)[0];
-      if (least && least.changePercent >= 0 && (!wz || least.name !== wz.name)) {
+      // Overlay: least-affected zone = green translucent box with label.
+      // Only consider zones with real coverage (skip swath-gap zones whose
+      // 0% change is just missing data, not a healthy region).
+      const least = det.region?.zones
+        .filter(z => !z.lowCoverage)
+        .sort((a, b) => a.changePercent - b.changePercent)[0];
+      if (least && (!wz || least.name !== wz.name)) {
         ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
         ctx.fillRect(least.bbox.x0 * scale, least.bbox.y0 * scale, (least.bbox.x1 - least.bbox.x0) * scale, (least.bbox.y1 - least.bbox.y0) * scale);
         ctx.strokeStyle = '#10B981';
@@ -432,7 +436,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                 <div className="bg-satellite-card border border-satellite-border rounded-lg p-3">
                   <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">{t('cd.regionBreakdown')}</div>
                   <div className="space-y-1.5">
-                    {result.region.zones.slice(0, 6).map((z: { name: string; changePercent: number; lowCoverage?: boolean }) => (
+                    {result.region.zones.map((z: { name: string; changePercent: number; lowCoverage?: boolean }) => (
                       <div key={z.name} className="flex items-center gap-2 text-[11px]">
                         <span className="w-44 text-slate-400 shrink-0 truncate">{zoneNames?.get(z.name) ?? z.name}</span>
                         <div className="flex-1 h-2 bg-satellite-border rounded-full overflow-hidden">

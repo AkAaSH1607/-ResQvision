@@ -16,18 +16,18 @@ const tabKeys: { id: string; icon: typeof Satellite; highlight?: boolean; alert?
   { id: 'history', icon: Database },
 ];
 
-const tabLabelKeys: Record<string, string> = {
-  dashboard: 'nav.dashboard',
-  live: 'nav.live',
-  colorize: 'nav.colorize',
-  change: 'nav.change',
-  disaster: 'nav.disaster',
-  history: 'nav.analytics',
+const tabLabels: Record<string, string> = {
+  dashboard: 'Dashboard',
+  live: 'Live Monitor',
+  colorize: 'IR Colorize',
+  change: 'Change Detection',
+  disaster: 'Live Disaster',
+  history: 'Analytics',
 };
 
 export default function Header({ activePage, onNavigate, alertCount }: HeaderProps) {
-  const { lang, setLang, t } = useLanguage();
-  const tabs = tabKeys.map(tab => ({ ...tab, label: t(tabLabelKeys[tab.id]) }));
+  const { lang, setLang } = useLanguage();
+  const tabs = tabKeys.map(tab => ({ ...tab, label: tabLabels[tab.id] }));
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-satellite-border bg-satellite-card/95 backdrop-blur-sm">
       <div className="flex items-center justify-between px-6 h-14">
