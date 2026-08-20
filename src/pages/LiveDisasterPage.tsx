@@ -5,20 +5,21 @@ import type { AlertRecord, AnalysisRecord } from '../lib/types';
 import { generateIncidentReport, type IncidentReport } from '../lib/incident-report';
 import { SATELLITE_SOURCES } from '../lib/live-feed';
 import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
+import { useLanguage } from '../lib/i18n';
 
-const SEVERITY_META: Record<string, { color: string; label: string; ring: string }> = {
-  critical: { color: '#DC2626', label: 'CRITICAL', ring: 'border-red-500/50' },
-  high: { color: '#EF4444', label: 'HIGH', ring: 'border-red-400/40' },
-  medium: { color: '#F59E0B', label: 'MODERATE', ring: 'border-amber-400/40' },
-  low: { color: '#84CC16', label: 'LOW', ring: 'border-lime-400/40' },
+const SEVERITY_META: Record<string, { color: string; labelKey: string; ring: string }> = {
+  critical: { color: '#DC2626', labelKey: 'critical', ring: 'border-red-500/50' },
+  high: { color: '#EF4444', labelKey: 'critical', ring: 'border-red-400/40' },
+  medium: { color: '#F59E0B', labelKey: 'moderate', ring: 'border-amber-400/40' },
+  low: { color: '#84CC16', labelKey: 'low', ring: 'border-lime-400/40' },
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  change_detected: 'Change Detected',
-  high_cloud: 'High Cloud Coverage',
-  heat_anomaly: 'Heat Anomaly',
-  storm: 'Storm Warning',
-  vegetation_loss: 'Vegetation Loss',
+  change_detected: 'change_detected',
+  high_cloud: 'high_cloud',
+  heat_anomaly: 'heat_anomaly',
+  storm: 'storm',
+  vegetation_loss: 'vegetation_loss',
 };
 
 function timeAgo(iso: string): string {
@@ -32,7 +33,23 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// Tamil labels for alert types & severity (English kept as key fallback)
+const TA_TYPE_LABELS: Record<string, string> = {
+  change_detected: 'மாற்றம் கணடறியப்பட்டது',
+  high_cloud: 'அதிக மேகமூட்டம்',
+  heat_anomaly: 'வெப்ப முரண்பாடு',
+  storm: 'புயல் எச்சரிக்கை',
+  vegetation_loss: 'தாவரவியல் இழப்பு',
+};
+const TA_SEVERITY: Record<string, string> = {
+  critical: 'முக்கியமான',
+  high: 'உயர்',
+  moderate: 'மிதமான',
+  low: 'குறைவான',
+};
+
 export default function LiveDisasterPage() {
+  const { t, lang } = useLanguage();
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [analyses, setAnalyses] = useState<AnalysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,14 +133,14 @@ export default function LiveDisasterPage() {
         <div className="flex items-center gap-3">
           <Siren size={18} className={maxSeverity ? 'text-red-400 animate-pulse' : 'text-green-400'} />
           <div>
-            <div className="text-sm font-semibold text-slate-200">Live Disaster Intelligence</div>
+            <div className="text-sm font-semibold text-slate-200">{t('ld.title')}</div>
             <div className="text-[11px] text-slate-500 mt-0.5">
-              {maxSeverity ? (
+                  {maxSeverity ? (
                 <span style={{ color: SEVERITY_META[maxSeverity].color }}>
-                  {SEVERITY_META[maxSeverity].label} threat active — {activeCount} live alert{activeCount === 1 ? '' : 's'}
+                  {lang === 'ta' ? TA_SEVERITY[maxSeverity] : SEVERITY_META[maxSeverity].labelKey.toUpperCase()} {lang === 'ta' ? 'நிலை நேரடியில்' : 'threat active'} — {activeCount} {lang === 'ta' ? 'நேரடி எச்சரிக்கைகள்' : 'live alert'}{activeCount === 1 ? '' : 's'}
                 </span>
               ) : (
-                <span className="text-green-400">No active disaster events. System is monitoring.</span>
+                <span className="text-green-400">{t('ld.noActive')}</span>
               )}
             </div>
           </div>
@@ -134,14 +151,14 @@ export default function LiveDisasterPage() {
             disabled={loading}
             className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 disabled:opacity-50"
           >
-            <RefreshCw size={10} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={10} className={loading ? 'animate-spin' : ''} /> {t('ld.refresh')}
           </button>
           {activeCount > 0 && (
             <button
               onClick={handleDismissAll}
               className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
             >
-              <Check size={10} /> Dismiss all
+              <Check size={10} /> {t('ld.dismissAll')}
             </button>
           )}
         </div>
@@ -152,28 +169,28 @@ export default function LiveDisasterPage() {
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-1">
             <Siren size={11} className="text-red-400" />
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Active Alerts</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('ld.activeAlerts')}</span>
           </div>
           <div className="text-2xl font-mono font-bold text-slate-200">{activeCount}</div>
         </div>
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle size={11} className="text-amber-400" />
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Critical</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('ld.critical')}</span>
           </div>
           <div className="text-2xl font-mono font-bold text-slate-200">{criticalCount}</div>
         </div>
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-1">
             <Crosshair size={11} className="text-red-400" />
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Total Affected</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('ld.totalAffected')}</span>
           </div>
           <div className="text-2xl font-mono font-bold text-slate-200">{totalAffectedPct.toFixed(1)}%</div>
         </div>
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp size={11} className="text-accent-orange" />
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider">Scans Processed</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('ld.scansProcessed')}</span>
           </div>
           <div className="text-2xl font-mono font-bold text-slate-200">{analyses.length}</div>
         </div>
@@ -184,9 +201,9 @@ export default function LiveDisasterPage() {
         <div className="px-4 py-2.5 border-b border-satellite-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity size={13} className="text-accent-orange" />
-            <span className="text-xs text-slate-300">Live Event Feed</span>
+            <span className="text-xs text-slate-300">{t('ld.eventFeed')}</span>
           </div>
-          <span className="text-[10px] text-slate-500">Sorted by severity, newest first</span>
+          <span className="text-[10px] text-slate-500">{t('ld.sorted')}</span>
         </div>
 
         <div className="p-4">
@@ -199,9 +216,9 @@ export default function LiveDisasterPage() {
               <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
                 <Check size={20} className="text-green-400" />
               </div>
-              <div className="text-sm text-slate-300">All Clear</div>
+              <div className="text-sm text-slate-300">{t('ld.allClear')}</div>
               <div className="text-[11px] text-slate-500 mt-1">
-                No disaster events detected right now. The system continuously monitors satellite feeds and will surface alerts here the moment a change is detected.
+                {t('ld.allClearDesc')}
               </div>
             </div>
           ) : (
@@ -228,18 +245,18 @@ export default function LiveDisasterPage() {
                             className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
                             style={{ background: `${meta.color}22`, color: meta.color, border: `1px solid ${meta.color}55` }}
                           >
-                            {meta.label}
+                            {lang === 'ta' ? (TA_SEVERITY[meta.labelKey] ?? meta.labelKey.toUpperCase()) : meta.labelKey.toUpperCase()}
                           </span>
                           <div className="min-w-0">
                             <div className="text-xs font-medium text-slate-200">
-                              {TYPE_LABELS[alert.alert_type] ?? alert.alert_type}
+                              {lang === 'ta' ? (TA_TYPE_LABELS[alert.alert_type] ?? alert.alert_type) : (TYPE_LABELS[alert.alert_type] ?? alert.alert_type)}
                               {analysis && ` · ${analysis.image_name}`}
                             </div>
                             <div className="text-[11px] text-slate-400 mt-0.5 break-words">{alert.message}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[9px] text-slate-500">{timeAgo(alert.created_at)}</span>
+                          <span className="text-[9px] text-slate-500">{timeAgo(alert.created_at) === 'just now' ? t('ld.justNow') : timeAgo(alert.created_at)}</span>
                           <button
                             onClick={() => handleDismiss(alert.id)}
                             className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
@@ -252,7 +269,7 @@ export default function LiveDisasterPage() {
                       {analysis && analysis.affected_area_percent !== null && (
                         <div className="flex items-center gap-3 text-[10px]">
                           <span className="flex items-center gap-1 text-slate-500">
-                            <Crosshair size={10} /> {analysis.affected_area_percent.toFixed(1)}% affected
+                            <Crosshair size={10} /> {analysis.affected_area_percent.toFixed(1)}% {t('an.affected')}
                           </span>
                           <span className="flex items-center gap-1 text-slate-500">
                             <Users size={10} /> ~{Math.round(analysis.affected_area_percent * 400 * (analysis.image_width ?? 1024) * (analysis.image_height ?? 1024) / 100 / 100) * 100} exposed
@@ -264,7 +281,7 @@ export default function LiveDisasterPage() {
                       {rep && (
                         <div className="bg-satellite-bg rounded-lg border border-red-500/30 p-3 text-xs space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-red-400 uppercase tracking-wider">Incident Report</span>
+                            <span className="font-semibold text-red-400 uppercase tracking-wider">{t('ld.reportGen')}</span>
                             <button
                               onClick={() => {
                                 const blob = new Blob(
@@ -278,16 +295,16 @@ export default function LiveDisasterPage() {
                               }}
                               className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
                             >
-                              <FileText size={10} /> Download
+                              <FileText size={10} /> {t('cd.download')}
                             </button>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5">
-                            <div><span className="text-slate-500">Disaster</span><div className="text-slate-200">{rep.disaster}</div></div>
-                            <div><span className="text-slate-500">Location</span><div className="text-slate-200">{rep.location}</div></div>
-                            <div><span className="text-slate-500">Affected</span><div className="text-slate-200">{rep.affectedAreaKm2.toLocaleString()} km²</div></div>
+                            <div><span className="text-slate-500">{t('cd.disaster')}</span><div className="text-slate-200">{rep.disaster}</div></div>
+                            <div><span className="text-slate-500">{t('cd.location')}</span><div className="text-slate-200">{rep.location}</div></div>
+                            <div><span className="text-slate-500">{t('cd.affectedArea')}</span><div className="text-slate-200">{rep.affectedAreaKm2.toLocaleString()} km²</div></div>
                             <div><span className="text-slate-500">Population</span><div className="text-slate-200">~{rep.populationExposed.toLocaleString()} exposed</div></div>
-                            <div><span className="text-slate-500">Expansion</span><div className="text-slate-200">{rep.expansion}</div></div>
-                            <div><span className="text-slate-500">Priority</span><div className="text-slate-200">{rep.recommendedPriority}</div></div>
+                            <div><span className="text-slate-500">{t('cd.expansion')}</span><div className="text-slate-200">{rep.expansion}</div></div>
+                            <div><span className="text-slate-500">{t('cd.priority')}</span><div className="text-slate-200">{rep.recommendedPriority}</div></div>
                           </div>
                         </div>
                       )}
@@ -299,7 +316,7 @@ export default function LiveDisasterPage() {
                           className="text-[10px] px-2 py-1 rounded bg-red-600/30 text-red-300 hover:bg-red-600/50 disabled:opacity-50 flex items-center gap-1 transition-colors"
                         >
                           <FileText size={10} />
-                          {generatingFor === alert.id ? 'Generating…' : rep ? 'Report Generated' : 'Generate Incident Report'}
+                          {generatingFor === alert.id ? t('ld.generating') : rep ? t('ld.reportGen') : t('ld.genReportBtn')}
                         </button>
                       </div>
                     </div>
@@ -312,12 +329,12 @@ export default function LiveDisasterPage() {
 
       {/* Legend */}
       <div className="bg-satellite-card border border-satellite-border rounded-xl p-3">
-        <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Severity Legend</div>
+        <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">{t('ld.severityLegend')}</div>
         <div className="flex flex-wrap gap-4 text-[11px]">
           {Object.entries(SEVERITY_META).map(([sev, meta]) => (
             <div key={sev} className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm" style={{ background: `${meta.color}66`, border: `1px solid ${meta.color}` }} />
-              <span className="text-slate-400">{meta.label}</span>
+              <span className="text-slate-400">{lang === 'ta' ? (TA_SEVERITY[meta.labelKey] ?? meta.labelKey) : meta.labelKey.toUpperCase()}</span>
             </div>
           ))}
         </div>

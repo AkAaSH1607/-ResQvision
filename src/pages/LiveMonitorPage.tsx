@@ -13,6 +13,7 @@ import { fetchAndColorizeLiveFrame, type ColorizedFrame } from '../lib/live-colo
 import { supabase } from '../lib/supabase';
 import { storeFrameForBaseline, runAutoChangeDetection, scaleDataUrl } from '../lib/auto-change-detection';
 import type { AutoChangeReport, ColormapName } from '../lib/types';
+import { useLanguage } from '../lib/i18n';
 
 const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -39,7 +40,19 @@ function weatherIconAndLabel(code: number | null) {
   return { Icon: Cloud, label: '—' };
 }
 
+const TA_WEATHER: Record<string, string> = {
+  '—': 'வானிலை —',
+  Clear: 'தெளிவான வானிலை',
+  'Partly Cloudy': 'பகுதி மேகமூட்டம்',
+  Cloudy: 'மேகமூட்டம்',
+  Fog: 'மூதல்',
+  Rain: 'மழை',
+  Snow: 'பனி',
+  Thunderstorm: 'இடி மின்னலுடன் மழை',
+};
+
 export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: () => void }) {
+  const { t, lang } = useLanguage();
   const [selectedSourceId, setSelectedSourceId] = useState<string>(SATELLITE_SOURCES[0].id);
   const [colormap, setColormap] = useState<ColormapName>(SATELLITE_SOURCES[0].defaultColormap);
   const [intensity, setIntensity] = useState(1.0);
@@ -202,13 +215,13 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
       <div className="flex flex-wrap items-center justify-between gap-2 bg-satellite-card border border-satellite-border rounded-xl px-4 py-2.5 flex-shrink-0">
         <div className="flex items-center gap-3">
           <Radio size={13} className={loading ? 'text-amber-400 animate-pulse' : 'text-green-400 animate-pulse'} />
-          <span className="text-sm font-semibold text-slate-200">Live IR Colorization Map</span>
+          <span className="text-sm font-semibold text-slate-200">{t('lm.mapTitle')}</span>
           <div className="px-2 py-0.5 rounded bg-accent-orange/10 border border-accent-orange/20 text-[10px] font-mono text-accent-orange">
-            {loading ? 'Fetching…' : fetchError ? 'Fetch failed' : `Updated ${timeAgo(lastUpdated)} · fetch #${fetchCount}`}
+            {loading ? t('lm.fetching') : fetchError ? t('lm.fetchFailed') : `Updated ${timeAgo(lastUpdated)} · fetch #${fetchCount}`}
           </div>
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-satellite-muted/30 border border-satellite-border text-[10px] font-mono text-slate-300">
             <weather.Icon size={11} className="text-accent-blue" />
-            {liveWeather.tempC !== null ? `${Math.round(liveWeather.tempC)}°C · ${weather.label}` : 'Weather —'}
+            {liveWeather.tempC !== null ? `${Math.round(liveWeather.tempC)}°C · ${lang === 'ta' ? (TA_WEATHER[weather.label] ?? weather.label) : weather.label}` : 'Weather —'}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -218,11 +231,11 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
             className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 hover:text-accent-orange disabled:opacity-40 transition-colors px-2 py-1 rounded border border-satellite-border"
           >
             <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
-            Refresh Now
+            {t('lm.refreshNow')}
           </button>
           <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
             <Clock size={10} />
-            Auto-refresh every 30 min
+            {t('lm.autoRefresh')}
           </div>
         </div>
       </div>
@@ -237,7 +250,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Layers size={12} className="text-accent-orange" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider">Live IR Source</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('lm.liveIRSource')}</span>
             </div>
             <div className="space-y-1.5">
               {SATELLITE_SOURCES.map(source => (
@@ -265,15 +278,15 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
                 }`}
               >
                 <span className={`text-xs font-semibold ${selectedSourceId === 'none' ? 'text-accent-orange' : 'text-slate-200'}`}>
-                  No Overlay
+                  {t('lm.noOverlay')}
                 </span>
-                <div className="text-[9px] text-slate-500 leading-relaxed mt-0.5">Base map only — for street-level zoom</div>
+                <div className="text-[9px] text-slate-500 leading-relaxed mt-0.5">{t('lm.noOverlayDesc')}</div>
               </button>
             </div>
             {selectedSourceId !== 'none' && (
               <div className="mt-3 pt-3 border-t border-satellite-border">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">Overlay Opacity</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('lm.overlayOpacity')}</span>
                   <span className="text-[10px] font-mono text-accent-orange">{Math.round(opacity * 100)}%</span>
                 </div>
                 <input

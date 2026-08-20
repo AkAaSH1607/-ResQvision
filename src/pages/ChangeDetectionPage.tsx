@@ -13,6 +13,7 @@ import { SATELLITE_SOURCES } from '../lib/live-feed';
 import type { ColormapName } from '../lib/types';
 import { generateIncidentReport, type IncidentReport } from '../lib/incident-report';
 import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
+import { useLanguage } from '../lib/i18n';
 
 const SEVERITY_COLORS: Record<string, string> = {
   None: '#10B981',
@@ -30,6 +31,7 @@ function zoneColor(pct: number) {
 }
 
 export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChanged: () => void }) {
+  const { t } = useLanguage();
   const [result, setResult] = useState<ChangeDetectionResult | null>(null);
   const [report, setReport] = useState<AutoChangeReport | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -263,12 +265,12 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
           <Radio size={15} className={phase === 'building' ? 'text-accent-orange animate-pulse' : 'text-green-400'} />
           <div>
             <div className="text-xs font-semibold text-slate-200">
-              Automatic Disaster Detection — {phase === 'no-baseline' ? 'Waiting for first satellite frame' : phase === 'building' ? 'Building satellite baseline' : phase === 'error' ? 'Scan error' : 'Active & Monitoring'}
+              {t('cd.title')} — {phase === 'no-baseline' ? t('cd.waitingFirst') : phase === 'building' ? t('cd.building') : phase === 'error' ? t('cd.error') : t('cd.active')}
             </div>
             <div className="text-[11px] text-slate-500 mt-0.5">
-              {phase === 'no-baseline' && 'The first fetch stores the baseline frame. Frame-to-frame comparison starts on the next satellite pass.'}
-              {phase === 'building' && 'Baseline stored. Fetching and comparing the fresh frame now…'}
-              {phase === 'ready' && report && `Comparing ${report.currentDate} against baseline ${report.baselineDate}.`}
+              {phase === 'no-baseline' && t('cd.baselineMsg')}
+              {phase === 'building' && t('cd.fetchingMsg')}
+              {phase === 'ready' && report && `${t('cd.comparing')} ${report.currentDate} / ${report.baselineDate}`}
               {phase === 'error' && errorMessage}
             </div>
           </div>
@@ -326,7 +328,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         <div className="bg-satellite-card border border-satellite-border rounded-xl p-4 space-y-4">
           <div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-slate-400 uppercase tracking-wider">Detection Threshold</span>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">{t('cd.threshold')}</span>
               <span className="text-xs font-mono text-accent-orange">{threshold} px</span>
             </div>
             <input
@@ -339,20 +341,20 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
               className="w-full"
             />
             <div className="flex justify-between text-[10px] text-slate-600 mt-1">
-              <span>Sensitive (5)</span>
-              <span>Moderate (40)</span>
-              <span>Strict (80)</span>
+              <span>{t('cd.sensitive')}</span>
+              <span>{t('cd.moderate')}</span>
+              <span>{t('cd.strict')}</span>
             </div>
           </div>
 
           {/* Map legend */}
           <div className="border-t border-satellite-border pt-3 space-y-2">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Map Legend</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">{t('cd.mapLegend')}</div>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-red-500/60 border border-red-400" /> <span className="text-slate-400">Most affected zone</span></div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-emerald-500/60 border border-emerald-400" /> <span className="text-slate-400">Least affected zone</span></div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-slate-700 border border-slate-600" /> <span className="text-slate-400">Swath gap (no data)</span></div>
-              <div className="flex items-center gap-2"><span className="text-slate-400">Base layer</span> <span className="text-slate-500">= current IR frame</span></div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-red-500/60 border border-red-400" /> <span className="text-slate-400">{t('cd.mostAffected')}</span></div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-emerald-500/60 border border-emerald-400" /> <span className="text-slate-400">{t('cd.leastAffected')}</span></div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-slate-700 border border-slate-600" /> <span className="text-slate-400">{t('cd.swathGap')}</span></div>
+              <div className="flex items-center gap-2"><span className="text-slate-400">{t('cd.baseLayer')}</span></div>
             </div>
           </div>
 
@@ -361,10 +363,10 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
             disabled={processing}
             className="w-full py-2.5 rounded-lg bg-accent-orange text-white text-sm font-medium hover:bg-accent-orange/90 disabled:opacity-50 transition-all"
           >
-            {processing ? 'Scanning…' : 'Re-run Automatic Scan Now'}
+            {processing ? t('cd.scanning') : t('cd.scanNow')}
           </button>
           <div className="text-[9px] text-slate-600 text-center">
-            Auto-scans run every 30 minutes. Stored baselines are limited to the 3 most recent frames (auto-cleanup).
+            {t('cd.autoNote')}
           </div>
         </div>
 
@@ -375,7 +377,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
               <div className="flex items-center gap-3">
                 <AlertTriangle size={20} style={{ color: SEVERITY_COLORS[result.severity] }} />
                 <div>
-                  <div className="text-sm font-medium text-slate-200">Disaster Assessment</div>
+                  <div className="text-sm font-medium text-slate-200">{t('cd.assessment')}</div>
                   <div className="text-xs font-mono mt-0.5" style={{ color: SEVERITY_COLORS[result.severity] }}>
                     {result.severity.toUpperCase()} SEVERITY
                   </div>
@@ -387,11 +389,11 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                   <div className="text-2xl font-mono font-bold" style={{ color: SEVERITY_COLORS[result.severity] }}>
                     {result.affectedAreaPercent.toFixed(1)}%
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">Affected Area</div>
+                  <div className="text-[10px] text-slate-500 mt-1">{t('cd.affectedArea')}</div>
                 </div>
                 <div className="metric-card text-center">
                   <div className="text-2xl font-mono font-bold text-slate-200">{result.changedPixels.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Changed Pixels</div>
+                  <div className="text-[10px] text-slate-500 mt-1">{t('cd.changedPixels')}</div>
                 </div>
               </div>
 
@@ -399,15 +401,15 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                 <div className="bg-satellite-card border border-red-500/30 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <MapPin size={13} className="text-red-400" />
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Most Affected Region</span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('cd.mostAffectedRegion')}</span>
                   </div>
                   <div className="text-sm font-semibold text-slate-100">{zoneNames?.get(result.region.worstZone.name) ?? result.region.worstZone.name}</div>
                   <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-                    Bounding box: ({result.region.worstZone.bbox.x0}, {result.region.worstZone.bbox.y0}) → ({result.region.worstZone.bbox.x1}, {result.region.worstZone.bbox.y1}) px
+                    {t('cd.boundingBox')}: ({result.region.worstZone.bbox.x0}, {result.region.worstZone.bbox.y0}) → ({result.region.worstZone.bbox.x1}, {result.region.worstZone.bbox.y1}) px
                   </div>
                   <div className="mt-2">
                     <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-                      <span>Zone impact</span>
+                      <span>{t('cd.zoneImpact')}</span>
                       <span className="font-mono text-red-400">{result.region.worstZone.changePercent}% changed</span>
                     </div>
                     <div className="h-2 bg-satellite-border rounded-full overflow-hidden">
@@ -419,17 +421,16 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
 
               {result.region?.worstZone?.lowCoverage && (
                 <div className="bg-satellite-card border border-slate-500/30 rounded-lg p-3">
-                  <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Coverage Warning</div>
+                  <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{t('cd.coverageWarning')}</div>
                   <div className="text-xs text-slate-300">
-                    The worst-scoring zone falls inside a satellite swath gap (no data). Results are unreliable for that
-                    area — re-check after the next satellite pass.
+                    {t('cd.coverageWarningDesc')}
                   </div>
                 </div>
               )}
 
               {result.region && (
                 <div className="bg-satellite-card border border-satellite-border rounded-lg p-3">
-                  <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">Region Breakdown</div>
+                  <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">{t('cd.regionBreakdown')}</div>
                   <div className="space-y-1.5">
                     {result.region.zones.slice(0, 6).map((z: { name: string; changePercent: number; lowCoverage?: boolean }) => (
                       <div key={z.name} className="flex items-center gap-2 text-[11px]">
@@ -442,7 +443,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                     ))}
                   </div>
                   <div className="text-[9px] text-slate-600 mt-2 border-t border-satellite-border pt-1.5">
-                    Zones dominated by satellite swath gaps are excluded from scoring and flagged as unreliable.
+                    {t('cd.unreliableNote')}
                   </div>
                 </div>
               )}
@@ -455,27 +456,27 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                   className="w-full py-2.5 rounded-lg bg-red-600/80 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-red-600/80 transition-all flex items-center justify-center gap-2"
                 >
                   <FileText size={14} />
-                  {generatingReport ? 'Generating…' : 'Generate Incident Report'}
+                  {generatingReport ? t('cd.generating') : t('cd.genReport')}
                 </button>
 
                 {incidentReport && (
                   <div className="bg-satellite-bg rounded-lg border border-red-500/30 p-3 text-xs space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-red-400 uppercase tracking-wider">Incident Report</span>
-                      <button onClick={downloadIncidentReport} className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1">
-                        <Download size={10} /> Download
-                      </button>
+                      <span className="font-semibold text-red-400 uppercase tracking-wider">{t('cd.incidentReport')}</span>
+                    <button onClick={downloadIncidentReport} className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1">
+                      <Download size={10} /> {t('cd.download')}
+                    </button>
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                      <div><span className="text-slate-500">Disaster</span><div className="text-slate-200">{incidentReport.disaster}</div></div>
-                      <div><span className="text-slate-500">Location</span><div className="text-slate-200">{incidentReport.location}</div></div>
-                      <div><span className="text-slate-500">Affected Area</span><div className="text-slate-200">{incidentReport.affectedAreaKm2.toLocaleString()} km²</div></div>
-                      <div><span className="text-slate-500">Population</span><div className="text-slate-200">~{incidentReport.populationExposed.toLocaleString()} exposed</div></div>
-                      <div><span className="text-slate-500">Expansion</span><div className="text-slate-200">{incidentReport.expansion}</div></div>
-                      <div><span className="text-slate-500">Priority</span><div className="text-slate-200">{incidentReport.recommendedPriority}</div></div>
+                    <div><span className="text-slate-500">{t('cd.disaster')}</span><div className="text-slate-200">{incidentReport.disaster}</div></div>
+                    <div><span className="text-slate-500">{t('cd.location')}</span><div className="text-slate-200">{incidentReport.location}</div></div>
+                    <div><span className="text-slate-500">{t('cd.affectedArea')}</span><div className="text-slate-200">{incidentReport.affectedAreaKm2.toLocaleString()} km²</div></div>
+                    <div><span className="text-slate-500">Population</span><div className="text-slate-200">~{incidentReport.populationExposed.toLocaleString()} exposed</div></div>
+                    <div><span className="text-slate-500">{t('cd.expansion')}</span><div className="text-slate-200">{incidentReport.expansion}</div></div>
+                    <div><span className="text-slate-500">{t('cd.priority')}</span><div className="text-slate-200">{incidentReport.recommendedPriority}</div></div>
                     </div>
                     <div className="text-[9px] text-slate-600 border-t border-satellite-border pt-1.5">
-                      Estimates use MODIS 4km pixel resolution × census-scale density (~400 people/km²). Verify with local disaster management authorities before dispatch.
+                      {t('cd.estimateNote')}
                     </div>
                   </div>
                 )}
@@ -485,7 +486,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
             <div className="text-center py-10">
               <Satellite size={20} className="text-slate-600 mx-auto mb-2" />
               <div className="text-xs text-slate-500">
-                {phase === 'no-baseline' ? 'Establishing the first baseline frame…' : 'Waiting for comparison results…'}
+                {phase === 'no-baseline' ? t('cd.estFirst') : t('cd.estWaiting')}
               </div>
             </div>
           )}

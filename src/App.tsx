@@ -9,6 +9,7 @@ import AlertsPage from './pages/AlertsPage';
 import LiveMonitorPage from './pages/LiveMonitorPage';
 import LiveDisasterPage from './pages/LiveDisasterPage';
 import { fetchAlerts, unsubscribeFromAlerts } from './lib/supabase';
+import { LanguageProvider, useLanguage } from './lib/i18n';
 
 type Page = 'dashboard' | 'live' | 'colorize' | 'change' | 'disaster' | 'history' | 'alerts';
 
@@ -41,6 +42,7 @@ export default function App() {
 
   if (unsubscribeStatus) {
     return (
+      <LanguageProvider>
       <div className="min-h-screen bg-satellite-bg grid-bg flex items-center justify-center px-4">
         <div className="max-w-sm w-full bg-satellite-card border border-satellite-border rounded-xl p-6 text-center">
           {unsubscribeStatus === 'checking' && <p className="text-slate-400 text-sm">Processing...</p>}
@@ -61,10 +63,12 @@ export default function App() {
           <a href="/" className="inline-block mt-4 text-xs text-accent-orange hover:underline">Return to ResQvision</a>
         </div>
       </div>
+      </LanguageProvider>
     );
   }
 
   return (
+    <LanguageProvider>
     <div className="min-h-screen bg-satellite-bg grid-bg">
       <Header activePage={page} onNavigate={navigate} alertCount={alertCount} />
 
@@ -82,14 +86,22 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-satellite-border bg-satellite-card/60 py-3 px-6">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between flex-wrap gap-2 text-[10px] text-slate-600 font-mono">
-          <span>ResQvision — IR Satellite Image Analysis Platform</span>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            <span>All systems operational</span>
-          </div>
-        </div>
+        <AppFooter />
       </footer>
+    </div>
+    </LanguageProvider>
+  );
+}
+
+function AppFooter() {
+  const { t } = useLanguage();
+  return (
+    <div className="max-w-screen-2xl mx-auto flex items-center justify-between flex-wrap gap-2 text-[10px] text-slate-600 font-mono">
+      <span>ResQvision — IR Satellite Image Analysis Platform</span>
+      <div className="flex items-center gap-1.5">
+        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+        <span>{t('app.footerAllSystems')}</span>
+      </div>
     </div>
   );
 }
