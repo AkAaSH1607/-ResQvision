@@ -20,14 +20,42 @@ interface USGSEvent {
   type: string;
 }
 
+/** Natural event from NASA EONET (free, no API key). */
+interface EONETEvent {
+  id: string;
+  title: string;
+  category: string; // e.g. "Wildfires", "Severe Storms", "Floods", "Volcanoes"
+  time: number; // unix ms
+  url: string;
+  lat: number;
+  lon: number;
+}
+
 // All-day feed (includes M2.5+) for broader India coverage; significant_day too sparse.
 const USGS_FEED_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
+
+// NASA EONET — open natural events API (wildfires, storms, floods, volcanoes)
+const EONET_API_URL = 'https://eonet.gsfc.nasa.gov/api/v3/events?limit=50&status=open';
 
 function usgsSeverity(mag: number): { color: string; label: string; ring: string } {
   if (mag >= 7.0) return { color: '#DC2626', label: 'CRITICAL', ring: 'border-red-500/50' };
   if (mag >= 5.5) return { color: '#EF4444', label: 'HIGH', ring: 'border-red-400/40' };
   if (mag >= 4.5) return { color: '#F59E0B', label: 'MEDIUM', ring: 'border-amber-400/40' };
   return { color: '#84CC16', label: 'LOW', ring: 'border-lime-400/40' };
+}
+
+const EONET_CATEGORY_COLOR: Record<string, string> = {
+  'Wildfires': '#F97316',
+  'Severe Storms': '#3B82F6',
+  'Floods': '#06B6D4',
+  'Volcanoes': '#EF4444',
+  'Tropical Cyclones': '#8B5CF6',
+};
+
+function eonetSeverity(cat: string): { color: string; label: string; ring: string } {
+  if (cat.includes('Cyclone') || cat === 'Volcanoes') return { color: '#EF4444', label: 'HIGH', ring: 'border-red-400/40' };
+  if (cat.includes('Storm') || cat.includes('Flood')) return { color: '#F59E0B', label: 'MEDIUM', ring: 'border-amber-400/40' };
+  return { color: '#F97316', label: 'WATCH', ring: 'border-orange-400/40' };
 }
 
 function timeAgoUSGS(unixMs: number): string {
@@ -77,9 +105,11 @@ export default function LiveDisasterPage() {
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [dismissError, setDismissError] = useState('');
 
-  // Real-time USGS earthquake events
+  // Real-time disaster events
   const [usgsEvents, setUsgsEvents] = useState<USGSEvent[]>([]);
+  const [eonetEvents, setEonetEvents] = useState<EONETEvent[]>([]);
   const [usgsLoading, setUsgsLoading] = useState(true);
+  const [eonetLoading, setEonetLoading] = useState(true);
 
   const fetchUSGS = async () => {
     try {
@@ -115,6 +145,40 @@ export default function LiveDisasterPage() {
     }
   };
 
+  const fetchEONET = async () => {
+    try {
+      const res = await fetch(EONET_API_URL, {
+        headers: { 'User-Agent': 'ResQvision-Hackathon/1.0' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      // India region filter (South Asia + buffer)
+      const indiaEvents: EONETEvent[] = (data.events ?? [])
+        .map((e: any) => {
+          const geom = e.geometry && e.geometry.length > 0 ? e.geometry[e.geometry.length - 1] : null;
+          const coords = geom?.coordinates ?? [0, 0];
+          return {
+            id: e.id,
+            title: e.title ?? 'Unknown',
+            category: (e.categories && e.categories[0])?.title ?? 'Other',
+            time: geom?.date ? new Date(geom.date).getTime() : Date.now(),
+            url: e.sources && e.sources.length > 0 ? e.sources[0].url : '',
+            lat: coords[1],
+            lon: coords[0],
+          } as EONETEvent;
+        })
+        .filter(
+          (e: EONETEvent) =>
+            e.lat >= 5 && e.lat <= 38 && e.lon >= 67 && e.lon <= 99
+        );
+      setEonetEvents(indiaEvents);
+    } catch {
+      setEonetEvents([]);
+    } finally {
+      setEonetLoading(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     setDismissError('');
@@ -130,7 +194,8 @@ export default function LiveDisasterPage() {
   useEffect(() => {
     loadData();
     fetchUSGS();
-    const timer = setInterval(() => { loadData(); fetchUSGS(); }, 60 * 1000);
+    fetchEONET();
+    const timer = setInterval(() => { loadData(); fetchUSGS(); fetchEONET(); }, 60 * 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -302,81 +367,100 @@ export default function LiveDisasterPage() {
         <div className="px-4 py-2.5 border-b border-satellite-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Siren size={13} className="text-red-400" />
-            <span className="text-xs text-slate-300 font-semibold">Real-Time Global Disasters (USGS)</span>
+            <span className="text-xs text-slate-300 font-semibold">Real-Time Natural Disasters — India (USGS + NASA)</span>
           </div>
           <span className="text-[10px] text-slate-500">
-            {usgsLoading ? 'Fetching…' : `${usgsEvents.length} events today`}
+            {(usgsLoading || eonetLoading) ? 'Fetching…' : `${usgsEvents.length + eonetEvents.length} events`}
           </span>
         </div>
         <div className="p-4">
-          {usgsLoading ? (
+          {usgsLoading || eonetLoading ? (
             <div className="flex items-center justify-center py-6">
               <div className="w-5 h-5 border-2 border-accent-orange border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : usgsEvents.length === 0 ? (
+          ) : usgsEvents.length === 0 && eonetEvents.length === 0 ? (
             <div className="text-center py-6">
-              <div className="text-[11px] text-slate-500">No significant earthquakes today. Data source: USGS Earthquake Hazards Program.</div>
+              <div className="text-[11px] text-slate-500">No active disasters detected in India region right now. Sources: USGS + NASA EONET.</div>
             </div>
           ) : (
             <div className="space-y-2">
-              {usgsEvents
-                .sort((a, b) => b.mag - a.mag || b.time - a.time)
-                .slice(0, 8)
-                .map(evt => {
-                  const sev = usgsSeverity(evt.mag);
-                  return (
+              {/* Earthquake events (USGS) */}
+              {usgsEvents.slice(0, 5).map(evt => {
+                const sev = usgsSeverity(evt.mag);
+                return (
+                  <div
+                    key={evt.id}
+                    className={`flex items-center gap-3 rounded-lg border ${sev.ring} bg-satellite-bg/50 px-3 py-2`}
+                  >
                     <div
-                      key={evt.id}
-                      className={`flex items-center gap-3 rounded-lg border ${sev.ring} bg-satellite-bg/50 px-3 py-2`}
+                      className="shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center"
+                      style={{ background: `${sev.color}22`, border: `1px solid ${sev.color}55` }}
                     >
-                      {/* Magnitude badge */}
-                      <div
-                        className="shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center"
-                        style={{ background: `${sev.color}22`, border: `1px solid ${sev.color}55` }}
-                      >
-                        <span className="text-[9px] text-slate-400 leading-none">M</span>
-                        <span className="text-sm font-mono font-bold" style={{ color: sev.color }}>
-                          {evt.mag.toFixed(1)}
-                        </span>
-                      </div>
-
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-slate-200 truncate">{evt.place}</div>
-                        <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
-                          <span>Earthquake</span>
-                          <span>· {evt.depth.toFixed(1)} km deep</span>
-                          <span>· {timeAgoUSGS(evt.time)}</span>
-                        </div>
-                      </div>
-
-                      {/* Severity */}
-                      <span
-                        className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
-                        style={{ background: `${sev.color}22`, color: sev.color, border: `1px solid ${sev.color}55` }}
-                      >
-                        {sev.label}
+                      <span className="text-[9px] text-slate-400 leading-none">M</span>
+                      <span className="text-sm font-mono font-bold" style={{ color: sev.color }}>
+                        {evt.mag.toFixed(1)}
                       </span>
-
-                      {/* Link to USGS */}
-                      {evt.url && (
-                        <a
-                          href={evt.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 text-[10px] text-blue-400 hover:text-blue-300"
-                          title="View on USGS"
-                        >
-                          ↗
-                        </a>
-                      )}
                     </div>
-                  );
-                })}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-slate-200 truncate">{evt.place}</div>
+                      <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                        <span className="font-medium text-slate-400">🌍 Earthquake</span>
+                        <span>· {evt.depth.toFixed(1)} km deep</span>
+                        <span>· {timeAgoUSGS(evt.time)}</span>
+                      </div>
+                    </div>
+                    <span
+                      className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
+                      style={{ background: `${sev.color}22`, color: sev.color, border: `1px solid ${sev.color}55` }}
+                    >
+                      {sev.label}
+                    </span>
+                    {evt.url && (
+                      <a href={evt.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] text-blue-400 hover:text-blue-300">↗</a>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Other natural events (NASA EONET) */}
+              {eonetEvents.map(evt => {
+                const sev = eonetSeverity(evt.category);
+                const catColor = EONET_CATEGORY_COLOR[evt.category] || '#6B7280';
+                return (
+                  <div
+                    key={evt.id}
+                    className={`flex items-center gap-3 rounded-lg border ${sev.ring} bg-satellite-bg/50 px-3 py-2`}
+                  >
+                    <div
+                      className="shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center"
+                      style={{ background: `${catColor}22`, border: `1px solid ${catColor}55` }}
+                    >
+                      <span className="text-xs" style={{ color: catColor }}>
+                        {evt.category === 'Wildfires' ? '🔥' : evt.category === 'Severe Storms' ? '⛈️' : evt.category === 'Floods' ? '🌊' : '🌋'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-slate-200 truncate">{evt.title}</div>
+                      <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                        <span className="font-medium" style={{ color: catColor }}>{evt.category}</span>
+                        <span>· {timeAgoUSGS(evt.time)}</span>
+                      </div>
+                    </div>
+                    <span
+                      className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
+                      style={{ background: `${sev.color}22`, color: sev.color, border: `1px solid ${sev.color}55` }}
+                    >
+                      {sev.label}
+                    </span>
+                    {evt.url && (
+                      <a href={evt.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[10px] text-blue-400 hover:text-blue-300">↗</a>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="mt-2 text-[9px] text-slate-600">
-            Source: USGS Earthquake Hazards Program — real-time data, updated every minute.
+            Sources: USGS Earthquake Hazards Program + NASA EONET — real-time data, updated every minute.
           </div>
         </div>
       </div>
