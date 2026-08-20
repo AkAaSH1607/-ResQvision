@@ -124,9 +124,6 @@ export default function SatelliteMap({
 }: SatelliteMapProps) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const scanDate = getTodayIST();
-  // The NASA frame captured ~24h before the scan (GIBS land products have a
-  // ~1-day processing delay) — kept in the caption for traceability.
-  const frameDate = dataDate ?? scanDate;
 
   return (
     <div className="relative w-full h-full">
@@ -236,12 +233,7 @@ export default function SatelliteMap({
       {/* Data date badge — compact single line */}
       <div className="absolute top-14 left-3 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-md px-2 py-1 pointer-events-none max-w-[220px]">
         <div className="text-[10px] font-semibold text-white leading-tight truncate">{scanDate}</div>
-        <div className="text-[8px] text-white/40 font-mono truncate">
-          {colorizedOverlay ? sourceLabel : 'ResQvision · MODIS Terra (GIBS)'}
-        </div>
-        <div className="text-[8px] text-white/40 font-mono truncate">
-          Scan (IST) · {frameDate === scanDate ? 'latest frame' : `frame: ${frameDate}`}
-        </div>
+        <div className="text-[8px] text-white/40 font-mono truncate">NASA GIBS</div>
       </div>
     </div>
   );
