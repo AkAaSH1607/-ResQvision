@@ -20,7 +20,8 @@ interface USGSEvent {
   type: string;
 }
 
-const USGS_FEED_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson';
+// All-day feed (includes M2.5+) for broader India coverage; significant_day too sparse.
+const USGS_FEED_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
 
 function usgsSeverity(mag: number): { color: string; label: string; ring: string } {
   if (mag >= 7.0) return { color: '#DC2626', label: 'CRITICAL', ring: 'border-red-500/50' };
@@ -87,18 +88,26 @@ export default function LiveDisasterPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const events: USGSEvent[] = (data.features ?? []).map((f: any) => ({
-        id: f.id,
-        mag: f.properties.mag ?? 0,
-        place: f.properties.place ?? 'Unknown',
-        time: f.properties.time ?? 0,
-        url: f.properties.url ?? '',
-        lat: f.geometry.coordinates[1],
-        lon: f.geometry.coordinates[0],
-        depth: f.geometry.coordinates[2] ?? 0,
-        type: f.properties.type ?? 'earthquake',
-      }));
-      setUsgsEvents(events);
+      // India region: lat 6-37, lon 68-98 (with buffer)
+      const indiaEvents: USGSEvent[] = (data.features ?? [])
+        .map((f: any) => ({
+          id: f.id,
+          mag: f.properties.mag ?? 0,
+          place: f.properties.place ?? 'Unknown',
+          time: f.properties.time ?? 0,
+          url: f.properties.url ?? '',
+          lat: f.geometry.coordinates[1],
+          lon: f.geometry.coordinates[0],
+          depth: f.geometry.coordinates[2] ?? 0,
+          type: f.properties.type ?? 'earthquake',
+        }))
+        .filter(
+          (e: USGSEvent) =>
+            e.lat >= 5 && e.lat <= 38 && e.lon >= 67 && e.lon <= 99 &&
+            e.mag >= 2.5
+        )
+        .sort((a: USGSEvent, b: USGSEvent) => b.mag - a.mag || b.time - a.time);
+      setUsgsEvents(indiaEvents);
     } catch {
       setUsgsEvents([]);
     } finally {
