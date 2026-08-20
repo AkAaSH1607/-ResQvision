@@ -75,33 +75,41 @@ export function inferDisasterType(det: ChangeDetectionResult): string {
 }
 
 /**
- * Estimate affected area in km² from the worst zone's bounding box,
- * scaled by the actual change percentage (only the changed fraction
- * of the zone is counted as "affected").
+ * Estimate affected area in km² from the actual changed pixel footprint
+ * within the worst zone — NOT the full zone bbox.
  *
- * Each zone = 1/9 of the India frame ≈ 10° × 9.67° ≈ ~1,100 km × ~1,070 km.
- * But the actual disaster area is only the changed pixels: zone area × (pct / 100).
- * We also clamp to a realistic district-scale max (5,000 km²) since
- * MODIS 4km pixels can't resolve sub-pixel detail.
+ * The satellite frame is 1024×1024 covering India (30° lon × 29° lat).
+ * Per-pixel geographic area at ~22°N:
+ *   px_w = 30° / 1024 ≈ 0.0293° → 0.0293 × 103 km ≈ 3.02 km
+ *   px_h = 29° / 1024 ≈ 0.0283° → 0.0283 × 111 km ≈ 3.14 km
+ *   px_area ≈ 3.02 × 3.14 ≈ 9.5 km² per pixel
+ *
+ * The affected area = changed pixel count within the zone × pixel area.
+ * But only pixels that changed ABOVE a meaningful intensity threshold
+ * count as truly "affected" (not just natural noise). We weight by the
+ * intensity ratio: high-intensity changes (≥100) count fully, moderate
+ * (50-100) count at 50%, low (<50) count at 10%.
  */
+const FRAME_LON_DEG = 30;
+const FRAME_LAT_DEG = 29;
+const FRAME_PX = 1024;
+const PX_KM_W = (FRAME_LON_DEG / FRAME_PX) * KM_PER_DEGREE_LON_AT_22N;
+const PX_KM_H = (FRAME_LAT_DEG / FRAME_PX) * KM_PER_DEGREE_LAT;
+const PX_AREA_KM2 = PX_KM_W * PX_KM_H; // ≈ 9.5 km²
+
 export function estimateAffectedKm2(det: ChangeDetectionResult): number {
   const wz = det.region?.worstZone;
   if (!wz) return 0;
-  // Zone bbox as fraction of frame
-  const totalPixels = det.totalPixels || (1024 * 1024);
-  const frameW = Math.sqrt(totalPixels); // approx square
-  const frameH = frameW;
-  const zoneFracW = (wz.bbox.x1 - wz.bbox.x0) / frameW;
-  const zoneFracH = (wz.bbox.y1 - wz.bbox.y0) / frameH;
-  // Geographic extent of the zone
-  const zoneLonDeg = zoneFracW * 30; // India bbox spans ~30° lon
-  const zoneLatDeg = zoneFracH * 29; // India bbox spans ~29° lat
-  const zoneKm2 = zoneLonDeg * KM_PER_DEGREE_LON_AT_22N * zoneLatDeg * KM_PER_DEGREE_LAT;
-  // Scale by change percent — only the affected fraction counts
-  const affectedFraction = Math.min(1, wz.changePercent / 100);
-  const affectedKm2 = zoneKm2 * affectedFraction;
-  // Clamp to realistic district-scale max (5,000 km² ≈ 70km × 70km)
-  return Math.min(affectedKm2, 5000);
+  // Zone pixel dimensions
+  const zoneW = wz.bbox.x1 - wz.bbox.x0;
+  const zoneH = wz.bbox.y1 - wz.bbox.y0;
+  const zonePixels = zoneW * zoneH;
+  // Only the changed fraction of zone pixels are affected
+  const changedPixels = zonePixels * (wz.changePercent / 100);
+  // Intensity-weighted: high intensity = full impact, low = partial
+  const intensityFactor = Math.min(1, wz.intensity / 128); // 0-255 scale, 128 = full
+  const affectedPixels = changedPixels * intensityFactor;
+  return Math.max(1, Math.round(affectedPixels * PX_AREA_KM2));
 }
 
 /**
@@ -182,8 +190,6 @@ export async function generateIncidentReport(
   // Realistic population: affected km² × 400 people/km² (district average)
   let popExposed = Math.round(affectedKm2 * POP_PER_KM2 / 100) * 100;
   if (popExposed > INDIA_POPULATION_CAP) popExposed = INDIA_POPULATION_CAP;
-  // Cap at realistic district max: 5000 km² × 400 = 2,000,000
-  if (popExposed > 2_000_000) popExposed = 2_000_000;
 
   // Location: prefer reverse-geocoded name; fallback to coords
   let location = zoneLocalName;
