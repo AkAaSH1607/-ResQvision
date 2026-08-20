@@ -75,9 +75,14 @@ export function inferDisasterType(det: ChangeDetectionResult): string {
 }
 
 /**
- * Estimate affected area in km² from the worst zone's bounding box.
- * The zone bbox is in pixel coords of the full frame; convert to geographic
- * degrees using the frame's bbox, then to km.
+ * Estimate affected area in km² from the worst zone's bounding box,
+ * scaled by the actual change percentage (only the changed fraction
+ * of the zone is counted as "affected").
+ *
+ * Each zone = 1/9 of the India frame ≈ 10° × 9.67° ≈ ~1,100 km × ~1,070 km.
+ * But the actual disaster area is only the changed pixels: zone area × (pct / 100).
+ * We also clamp to a realistic district-scale max (5,000 km²) since
+ * MODIS 4km pixels can't resolve sub-pixel detail.
  */
 export function estimateAffectedKm2(det: ChangeDetectionResult): number {
   const wz = det.region?.worstZone;
@@ -91,7 +96,12 @@ export function estimateAffectedKm2(det: ChangeDetectionResult): number {
   // Geographic extent of the zone
   const zoneLonDeg = zoneFracW * 30; // India bbox spans ~30° lon
   const zoneLatDeg = zoneFracH * 29; // India bbox spans ~29° lat
-  return zoneLonDeg * KM_PER_DEGREE_LON_AT_22N * zoneLatDeg * KM_PER_DEGREE_LAT;
+  const zoneKm2 = zoneLonDeg * KM_PER_DEGREE_LON_AT_22N * zoneLatDeg * KM_PER_DEGREE_LAT;
+  // Scale by change percent — only the affected fraction counts
+  const affectedFraction = Math.min(1, wz.changePercent / 100);
+  const affectedKm2 = zoneKm2 * affectedFraction;
+  // Clamp to realistic district-scale max (5,000 km² ≈ 70km × 70km)
+  return Math.min(affectedKm2, 5000);
 }
 
 /**
@@ -169,17 +179,19 @@ export async function generateIncidentReport(
   const expansion = estimateExpansionDirection(det, width, height);
   const severity = det.severity;
 
-  // Realistic population: km² × 400, capped at India's total population
+  // Realistic population: affected km² × 400 people/km² (district average)
   let popExposed = Math.round(affectedKm2 * POP_PER_KM2 / 100) * 100;
   if (popExposed > INDIA_POPULATION_CAP) popExposed = INDIA_POPULATION_CAP;
+  // Cap at realistic district max: 5000 km² × 400 = 2,000,000
+  if (popExposed > 2_000_000) popExposed = 2_000_000;
 
-  // Fallback location: use zone name with coordinates if geocoding fails
+  // Location: prefer reverse-geocoded name; fallback to coords
   let location = zoneLocalName;
   if (!location && wz) {
     const geo = parseBBox(bbox);
     if (geo) {
       const { lat, lon } = zoneCenterGeo(geo, wz.bbox, width, height);
-      location = `${wz.name} (${lat.toFixed(1)}°N, ${lon.toFixed(1)}°E)`;
+      location = `${lat.toFixed(1)}°N, ${lon.toFixed(1)}°E`;
     } else {
       location = wz.name;
     }
