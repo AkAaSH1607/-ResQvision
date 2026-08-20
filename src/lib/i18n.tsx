@@ -1,20 +1,18 @@
 /**
- * Lightweight in-app language support — English + Tamil (தமிழ்).
- * Zero external dependencies, zero cost. Selection is remembered in
- * localStorage so returning visitors stay in Tamil automatically.
+ * ResQvision UI strings — English only.
+ * Zero external dependencies, zero cost.
  *
  * Usage:
- *   const { t, lang, setLang } = useLanguage();
+ *   const { t } = useLanguage();
  *   <span>{t('dashboard.title')}</span>
  *
- * t(key) returns the Tamil string when available; otherwise it returns
- * the English fallback value from the en dictionary — never the raw key.
- * Data values, numbers, technical terms (colormaps, satellite names,
- * severity codes) stay in English to keep them readable and accurate.
+ * t(key, params) returns the English value, never the raw key.
+ * {placeholder} values in templates are replaced from params.
+ * Data values, numbers and technical terms stay as-is.
  */
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 
-export type Language = 'en' | 'ta';
+export type Language = 'en';
 
 // English is the full source dictionary (fallback when Tamil missing)
 const en: Record<string, string> = {
@@ -408,404 +406,7 @@ const en: Record<string, string> = {
   'cd.areaKm2': 'Affected area',
 };
 
-// Tamil dictionary — complete, accurate translations
-const ta: Record<string, string> = {
-  'app.footerAllSystems': 'அனைத்து அமைப்புகளும் இயங்குகின்றன',
-
-  'nav.dashboard': 'டாஷ்போர்டு',
-  'nav.live': 'நேரடி கண்காணிப்பு',
-  'nav.colorize': 'IR வண்ணமயமாக்கல்',
-  'nav.change': 'மாற்ற கண்டறிதல்',
-  'nav.disaster': 'நேரடி பேரிடர்',
-  'nav.analytics': 'பகுபாய்வுகள்',
-
-  'dash.title': 'ResQvision டாஷ்போர்டு',
-  'dash.subtitle': 'பூஜ்ஜிய செலவு, கிளையன்ட்-பக்க IR சாதனை பட பகுபாய்வு',
-  'dash.quickActions': 'விரைவு செயல்கள்',
-  'dash.liveIR': 'நேரடி IR கண்காணிப்பு',
-  'dash.liveIRDesc': 'இந்தியா முழுவதும் நிகழ்நேர வெப்ப பொய்-நிற காட்சிகள்',
-  'dash.colorize': 'IR படத்தை வண்ணமயமாக்கு',
-  'dash.colorizeDesc': 'பதிவேற்றிய IR படத்தை வெப்ப வண்ண வரைபடமாக மாற்றுங்கள்',
-  'dash.changeDetection': 'பேரிடர் மாற்ற கண்டறிதல்',
-  'dash.changeDetectionDesc': 'பாதிக்கப்பட்ட பகுதிகளை தானியங்கி மாற்ற பகுபாய்வு மூலம் கண்டறியுங்கள்',
-  'dash.analytics': 'பகுபாய்வு வரலாறு',
-  'dash.analyticsDesc': 'முன்பு செய்யப்பட்ட பகுபாய்வுகள் மற்றும் எச்சரிக்கைகளைப் பார்க்கவும்',
-  'dash.liveDisaster': 'நேரடி பேரிடர் நுண்ணறிவு',
-  'dash.liveDisasterDesc': 'செயலிலுள்ள பேரிடர் நிகழ்வுகள் மற்றும் தீவிரத்தை கண்காணித்தல்',
-  'dash.systemHealth': 'அமைப்பு நிலை',
-  'dash.techInfo': 'தொழில்நுட்ப தகவல்',
-  'dash.frugalNote': '₹0 செலவு — அனைத்தும் உங்கள் உலாவியிலேயே இயங்குகிறது',
-  'dash.clientSideAI': 'கிளையன்ட்-பக்க AI',
-  'dash.clientSideAIDesc': 'TensorFlow.js மாதிரிகள் உங்கள் சாதனத்திலேயே இயங்குகின்றன — சர்வர் இல்லை, செலவு இல்லை',
-  'dash.zeroCost': 'பூஜ்ஜிய செலவு',
-  'dash.zeroCostDesc': 'API கீகள், GPU அல்லது உரிம மென்பொருள் தேவை இல்லை',
-  'dash.opensource': 'திறந்த மூலம்',
-  'dash.opensourceDesc': 'குறியீடு முழுவதும் GitHub-இல் கிடைக்கிறது',
-  'dash.howItWorks': 'இது எப்படி இயங்குகிறது?',
-  'dash.howStep1Title': 'நிகழ்நேர சாதனை படங்களைப் பெறுதல்',
-  'dash.howStep1Desc': 'NASA GIBS-இலிருந்து MODIS இன்ஃப்ராரெட் படங்களை நிகழ்நேரத்தில் பெறுகிறோம்',
-  'dash.howStep2Title': 'வெப்ப அளவுகோலாக வண்ணமயமாக்கல்',
-  'dash.howStep2Desc': 'மூல சாதனை படம் உங்கள் உலாவியில் வெப்பநிலை வண்ண அளவுகோலாக மாற்றப்படுகிறது',
-  'dash.howStep3Title': 'கிளையன்ட்-பக்க AI பகுபாய்வு',
-  'dash.howStep3Desc': 'TensorFlow.js வலையமைப்பு வானிலை, NDVI மற்றும் வெப்ப முரண்பாடுகளை உங்கள் சாதனத்திலேயே கணக்கிடுகிறது',
-  'dash.howStep4Title': 'மாற்ற கண்டறிதல் & எச்சரிக்கைகள்',
-  'dash.howStep4Desc': 'அடிப்படையுடன் ஒப்பிட்டு, மோசமான பகுதிகள் குறிப்பிடப்பட்டு எச்சரிக்கைகள் அனுப்பப்படுகின்றன',
-
-  'cd.title': 'தானியங்கி பேரிடர் கண்டறிதல்',
-  'cd.waitingFirst': 'முதல் சாதனை படத்தை எதிர்பார்க்கிறது',
-  'cd.building': 'சாதனை அடிப்படை உருவாக்கப்படுகிறது',
-  'cd.error': 'ஸ்கேன் பிழை',
-  'cd.active': 'செயலில் & கண்காணிக்கிறது',
-  'cd.baselineMsg': 'முதல் படம் அடிப்படையாக சேமிக்கப்படுகிறது. அடுத்த சாதனை கடவுதலில் ஒப்பீடு தொடங்கும்.',
-  'cd.fetchingMsg': 'அடிப்படை சேமிக்கப்பட்டது. புதிய படத்தைப் பெற்று ஒப்பிடுகிறது…',
-  'cd.comparing': 'ஒப்பிடுகிறது',
-  'cd.dmgMap': 'நஷ்ட வரைபடம் — மிகுந்த & குறைந்த பாதிப்பு பகுதிகள்',
-  'cd.mostAffected': 'மிகுந்த பாதிக்கப்பட்ட பகுதி',
-  'cd.leastAffected': 'குறைவாக பாதிக்கப்பட்ட பகுதி',
-  'cd.swathGap': 'பாதை கிடை (தரவு இல்லை)',
-  'cd.baseLayer': 'அடிப்படை படவு = தற்போதைய IR படம்',
-  'cd.threshold': 'கண்டறிதல் வரம்பு',
-  'cd.sensitive': 'உணர்வுடன் (5)',
-  'cd.moderate': 'மிதமானது (40)',
-  'cd.strict': 'கடுமையானது (80)',
-  'cd.mapLegend': 'வரைபட வகையறா',
-  'cd.scanNow': 'இப்போது தானியங்கி ஸ்கேன் இயக்கு',
-  'cd.scanning': 'ஸ்கேன் செய்கிறது…',
-  'cd.autoNote': 'தானியங்கி ஸ்கேன்கள் ஒவ்வொரு 30 நிமிஷத்திலும் இயங்கும். சேமிக்கப்பட்ட அடிப்படைகள் சமீபத்திய 3 படங்களாக மட்டுமே இருக்கும் (தானியங்கி சுத்தமாக்கல்).',
-  'cd.assessment': 'பேரிடர் மதிப்பீடு',
-  'cd.affectedArea': 'பாதிக்கப்பட்ட பரப்பளவு',
-  'cd.changedPixels': 'மாற்றப்பட்ட படப்புள்ளிகள்',
-  'cd.mostAffectedRegion': 'மிகுந்த பாதிக்கப்பட்ட பகுதி',
-  'cd.boundingBox': 'கட்டுப்பாட்டுப் பெட்டி',
-  'cd.zoneImpact': 'பகுதி தாக்கம்',
-  'cd.coverageWarning': 'கவரேஜ் எச்சரிக்கை',
-  'cd.coverageWarningDesc': 'மோசமான மதிப்பெண் கொண்ட பகுதி சாதனை பாதை கிடைக்குள் (தரவு இல்லை) அமைந்துள்ளது. அந்த பகுதி முடிவுகள் நம்பகமில்லாதவை — அடுத்த சாதனை கடவுதலுக்குப் பிறகு மீண்டும் சரிபார்க்கவும்.',
-  'cd.regionBreakdown': 'பகுதி விவரங்கள்',
-  'cd.unreliableNote': 'சாதனை பாதை கிடைகளால் ஆளப்படும் பகுதிகள் மதிப்பீட்டிலிருந்து விலக்கப்பட்டு, நம்பகமில்லாதவை என குறிப்பிடப்பட்டுள்ளன.',
-  'cd.generating': 'உருவாக்குகிறது…',
-  'cd.genReport': 'சம்பவ அறிக்கையை உருவாக்கு',
-  'cd.incidentReport': 'சம்பவ அறிக்கை',
-  'cd.download': 'பதிவிறக்கம்',
-  'cd.disaster': 'பேரிடர் வகை',
-  'cd.location': 'இடம்',
-  'cd.expansion': 'விரிவடைதல்',
-  'cd.priority': 'முன்னுரிமை',
-  'cd.estimateNote': 'மதிப்பீடுகள் MODIS 4km படப்புள்ளி தீர்மானம் × மக்கள்தொகை அடர்த்தி (~400 நபர்கள்/கிமீ²) அடிப்படையில். அனுப்புமுன் புள்ளில் உள்ளூர் பேரிடர் மேலாண்மை அதிகாரிகளிடம் உறுதிப்படுத்தவும்.',
-  'cd.estFirst': 'முதல் அடிப்படை படத்தை உருவாக்குகிறது…',
-  'cd.estWaiting': 'ஒப்பீடு முடிவுகளை எதிர்பார்க்கிறது…',
-  'cd.reRun': 'இப்போது தானியங்கி ஸ்கேன் மீண்டும் இயக்கு',
-
-  'ld.title': 'நேரடி பேரிடர் நுண்ணறிவு',
-  'ld.noActive': 'தற்போது செயலிலுள்ள பேரிடர் நிகழ்வுகள் இல்லை. அமைப்பு கண்காணிக்கிறது.',
-  'ld.refresh': 'புதுப்பி',
-  'ld.dismissAll': 'அனைத்தையும் நிராகரி',
-  'ld.activeAlerts': 'செயலிலுள்ள எச்சரிக்கைகள்',
-  'ld.critical': 'கிரிட்டிக்கல்',
-  'ld.totalAffected': 'மொத்த பாதிப்பு',
-  'ld.scansProcessed': 'ஸ்கேன்கள்',
-  'ld.eventFeed': 'நேரடி நிகழ்வு ஊட்டம்',
-  'ld.sorted': 'தீவிரத்தின் அடிப்படையில், புதியது முதலில்',
-  'ld.allClear': 'அனைத்தும் தெளிவு',
-  'ld.allClearDesc': 'இப்போது பேரிடர் நிகழ்வுகள் கண்டறியப்படவில்லை. அமைப்பு சாதனை ஊட்டங்களைத் தொடர்ந்து கண்காணித்து, மாற்றம் கண்டறியப்படும் நொடியில் இங்கு எச்சரிக்கைகளை காட்டும்.',
-  'ld.justNow': 'இப்போதுதான்',
-  'ld.reportGen': 'அறிக்கை உருவாக்கப்பட்டது',
-  'ld.genReportBtn': 'சம்பவ அறிக்கையை உருவாக்கு',
-  'ld.generating': 'உருவாக்குகிறது…',
-  'ld.severityLegend': 'தீவிரத்தை வகையறா',
-
-  'lm.title': 'நேரடி IR கண்காணிப்பு',
-  'lm.mapTitle': 'நேரடி IR வண்ணமயமாக்கல் படம்',
-  'lm.fetching': 'பெறுகிறது…',
-  'lm.fetchFailed': 'பெற முடியவில்லை',
-  'lm.refreshNow': 'இப்போது புதுப்பி',
-  'lm.autoRefresh': '30 நிமிஷத்துக்கு ஒருமுறை தானியங்கி புதுப்பித்தல்',
-  'lm.liveIRSource': 'நேரடி IR மூலம்',
-  'lm.noOverlay': 'மேற்பொருத்தம் இல்லை',
-  'lm.noOverlayDesc': 'அடிப்படை படம் மட்டும் — தெரு-மட்ட அளவுக்கு',
-  'lm.overlayOpacity': 'மேற்பொருத்த ஊடுபாது',
-  'lm.weatherClear': 'தெளிவான வானிலை',
-  'lm.weatherPartlyCloudy': 'பகுதி மேகமூட்டம்',
-  'lm.weatherCloudy': 'மேகமூட்டம்',
-  'lm.weatherFog': 'மூதல்',
-  'lm.weatherRain': 'மழை',
-  'lm.weatherSnow': 'பனி',
-  'lm.weatherThunderstorm': 'இடி மின்னலுடன் மழை',
-  'lm.subtitle': 'இந்தியா முழுவதும் நிகழ்நேர இன்ஃப்ராரெட் வெப்ப காட்சிகள்',
-  'lm.selectSource': 'நிகழ்நேர ஊட்ட மூலத்தைத் தேர்வுசெய்யவும்',
-  'lm.indiaFull': 'முழு இந்தியா — கிடைகள் இல்லை',
-  'lm.northIndia': 'வட இந்தியா',
-  'lm.southIndia': 'தென் இந்தியா',
-  'lm.frame': 'படம்',
-  'lm.date': 'தேதி',
-  'lm.weather': 'வானிலை',
-  'lm.weatherCond': 'வானிலை நிலை',
-  'lm.water': 'நீர் நிலைகள்',
-  'lm.urbanHeat': 'நகர வெப்பம்',
-  'lm.vegetation': 'தாவரவியல்',
-  'lm.clouds': 'மேகங்கள்',
-  'lm.confidence': 'நம்பகத்தன்மை',
-  'lm.mlAnalysis': 'ML பகுபாய்வு',
-  'lm.colormap': 'வண்ண வரைபடம்',
-  'lm.intensity': 'தீவிரம்',
-  'lm.mapLegend': 'வரைபட வகையறா',
-  'lm.hot': 'வெப்பமான நிலம்',
-  'lm.cold': 'குளிரான நீர்/நிலம்',
-  'lm.waterBodies': 'நீர் நிலைகள்',
-  'lm.cloudCoverageLabel': 'மேகமூட்டம்:',
-  'ld.statusActive': '{sev} தீவிரம் — {count} நேரடி எச்சரிக்கைகள் செயலில்',
-  'lm.vegetationZones': 'தாவரவியல் பகுதிகள்',
-  'lm.swathGaps': 'பாதை கிடைகள் (தரவு இல்லை)',
-  'lm.howColored': 'இது எப்படி வண்ணமயமாக்கப்படுகிறது?',
-  'lm.pipelineDesc': 'மூல படம் பசுமை சாம்பலிலிருந்து வெப்ப அளவுகோலாக மாற்றப்படுகிறது',
-  'lm.cloudy': 'மேகமூட்டம்',
-  'lm.rainy': 'மழை',
-  'lm.sunny': 'வெயில்',
-  'lm.stormy': 'புயல்',
-  'lm.weatherCardTitle': 'வானிலை நிலை',
-  'lm.weatherCardDesc': 'வண்ணங்களைப் பார்த்து வானிலையை அறியவும்',
-
-  'cp.title': 'IR பட வண்ணமயமாக்கல்',
-  'cp.subtitle': 'பதிவேற்றிய இன்ஃப்ராரெட் படத்தை வெப்ப வண்ண வரைபடமாக மாற்றுங்கள்',
-  'cp.upload': 'IR படத்தைப் பதிவேற்றவும்',
-  'cp.dragDrop': 'கோப்புகளை இங்கு இழுத்து விடுங்கள்',
-  'cp.or': 'அல்லது',
-  'cp.browse': 'உலாவி தேர்ந்தெடுக்கவும்',
-  'cp.supported': 'PNG, JPG (கருப்பு-வெள்ளை IR)',
-  'cp.colorizeNow': 'இப்போது வண்ணமயமாக்கு',
-  'cp.processing': 'செயலாக்குகிறது…',
-  'cp.colormap': 'வண்ண வரைபடம்',
-  'cp.intensity': 'தீவிரம்',
-  'cp.qualityMetrics': 'தர மெட்ரிக்குகள்',
-  'cp.download': 'வண்ணமயாக்கப்பட்ட படத்தைப் பதிவிறக்கு',
-  'cp.noData': 'தரவு இல்லை — முதலில் படத்தைப் பதிவேற்றுங்கள்',
-  'cp.madeBy': 'ResQvision-இனால் உருவாக்கப்பட்டது',
-
-  'al.title': 'எச்சரிக்கைகள்',
-  'al.subtitle': 'ResQvision பேரிடர் எச்சரிக்கைகள்',
-  'al.subscribe': 'எச்சரிக்கைகளுக்கு பதிவுசெய்யவும்',
-  'al.email': 'மின்னஞ்சல்',
-  'al.region': 'பகுதி (தேவை இல்லை)',
-  'al.subscribeBtn': 'பதிவுசெய்யவும்',
-  'al.subscribing': 'பதிவுசெய்கிறது…',
-  'al.subscribed': 'பதிவுசெய்யப்பட்டது!',
-  'al.subscribedDesc': 'மோசமான நிகழ்வுகளுக்கு மின்னஞ்சல் மூலம் அறிவிப்புகளைப் பெறுவீர்கள்',
-  'al.unsubscribe': 'பதிவுநீக்கம்',
-  'al.error': 'பிழை ஏற்பட்டது — மீண்டும் முயற்சிக்கவும்',
-  'al.dismiss': 'நிராகரி',
-  'al.noAlerts': 'எச்சரிக்கைகள் இல்லை',
-  'al.noAlertsDesc': 'பேரிடர் எச்சரிக்கைகள் கண்டறியப்படும்போது இங்கு தோன்றும்',
-
-  'an.title': 'பகுபாய்வு வரலாறு',
-  'an.subtitle': 'முன்பு செய்யப்பட்ட IR பகுபாய்வுகள்',
-  'an.totalAnalyses': 'மொத்த பகுபாய்வுகள்',
-  'an.avgPSNR': 'சராசரி PSNR',
-  'an.avgCloud': 'சராசரி மேகமூட்டம்',
-  'an.highSeverity': 'உயர் தீவிரம்',
-  'an.recentAnalyses': 'சமீபத்திய பகுபாய்வுகள்',
-  'an.noHistory': 'பகுபாய்வு வரலாறு இல்லை',
-  'an.noHistoryDesc': 'IR படங்களை வண்ணமயாக்கி பகுபாய்வு செய்யும்போது முடிவுகள் இங்கு சேமிக்கப்படும்',
-  'an.type': 'வகை',
-  'an.date': 'தேதி',
-  'an.severity': 'தீவிரம்',
-  'an.affected': 'பாதிப்பு',
-  'an.colormapUsed': 'பயன்படுத்திய வண்ண வரைபடம்',
-
-  'lm.resqvisionColorization': 'ResQvision வண்ணமயமாக்கல்',
-  'lm.mapMarkers': 'வரைபட குறிகள்',
-  'lm.cityMarkers': 'நகர குறிகள்',
-  'lm.cityMarkersDesc': 'இந்தியா முழுவதும் 15 நகரங்கள்',
-  'lm.landmarks': 'புகழ்பெற்ற இடங்கள் & பூகோளம்',
-  'lm.alertMarkers': 'எச்சரிக்கை குறிகள்',
-  'lm.active': 'செயலில்',
-  'lm.autoDisasterScan': 'தானியங்கி பேரிடர் ஸ்கேன்',
-  'lm.buildingBaseline': 'சாதன அடிப்படை உருவாக்கப்படுகிறது — ஒவ்வொரு படமும் தானியங்கியாக சேமிக்கப்படுகிறது. முதல் ஒப்பீடு அடுத்த சாதன கடவுதலில் இயங்கும்.',
-  'lm.baseline': 'அடிப்படை',
-  'lm.current': 'தற்போதையது',
-  'lm.mostAffectedZone': 'மிகுந்த பாதித்த பகுதி',
-  'lm.leastAffectedZone': 'குறைவாக பாதித்த பகுதி',
-  'lm.overallChange': 'மொத்த மாற்றம்',
-  'lm.allClearScan': 'அடிப்படையுடன் குறிப்பிடத்தக்க மாற்றம் கண்டறியப்படவில்லை — அனைத்தும் பாதுகாப்பானது.',
-  'lm.regionNote': 'பகுதி பகுபாய்வு சாதன பாதை கிடைகளை (தரவு இல்லாத பகுதிகள்) தவிர்க்கிறது. கிடைகளால் ஆளப்படும் பகுதிகள் நம்பகமில்லாதவை என குறிப்பிடப்படும்.',
-  'lm.autoScanPending': 'முதல் படத்தைப் பெற்ற பின் தானியங்கி ஸ்கேன் இயங்கும்…',
-  'lm.alertSubscription': 'எச்சரிக்கை பதிவு',
-  'lm.irOverlayLegend': 'IR மேற்பொருத்த வண்ண வகையறா',
-  'lm.rawFrameLegend': 'ResQvision பைப்லைனால் {colormap} வண்ண வரைபடமாக மூல படம் வண்ணமயமாக்கப்படுகிறது:',
-  'lm.veryCold': 'மிகக் குளிர்',
-  'lm.cold2': 'குளிர்',
-  'lm.cool2': 'தண்மை',
-  'lm.warm2': 'வெப்பம்',
-  'lm.hot2': 'வெப்பமானது',
-  'lm.veryHot': 'மிக வெப்பமானது',
-  'lm.hottest': 'மிகவும் வெப்பமானது',
-  'lm.legendThickClouds': 'தடித்த மேகங்கள், புயல் உச்சிகள்',
-  'lm.legendHighCloud': 'உயர மேகமூட்டம்',
-  'lm.legendCirrus': 'சிரஸ், உயர பூமி',
-  'lm.legendLand': 'நிலம், தாழ் மேகங்கள்',
-  'lm.legendBareSoil': 'வெறும் மண்ணு, நகர பகுதிகள்',
-  'lm.legendHeatIslands': 'வெப்ப தீவுகள், தீப்பிடங்கள்',
-  'lm.legendSnow': 'உயர மேகங்கள், பனி',
-  'lm.legendMidClouds': 'இடைநிலை மேகங்கள்',
-  'lm.legendOcean': 'தாவரவியல், கடல்',
-  'lm.legendUrbanHeat': 'நகர வெப்பம், தீப்பிடங்கள்',
-  'lm.legendStormTops': 'புயல் உச்சிகள், தடித்த மேகங்கள்',
-  'lm.legendHighClouds': 'உயர மேகங்கள்',
-  'lm.legendMidWater': 'இடை மேகங்கள், நீர்',
-  'lm.legendVegetation': 'நிலம், தாவரவியல்',
-  'lm.legendUrban': 'நகர பகுதிகள்',
-  'lm.legendFalseColor': 'குறிப்பு: பொய்-நிற மூல படங்கள் — தாவரம் சிவப்பு, நீர் கருப்பு நீலம், மேகம் வெள்ளை — ResQvision வெப்ப அளவுக்கோலாக மாற்றும் முன்.',
-  'lm.markerLegend': 'குறி வகையறா',
-  'lm.nationalCapital': 'தேசிய தலைநகரம்',
-  'lm.majorMetro': 'பெரிய மெட்ரோ நகரம்',
-  'lm.city': 'நகரம்',
-  'lm.disasterAlert': 'பேரிடர் எச்சரிக்கை',
-  'lm.geographicFeature': 'பூகோள அம்சம்',
-  'lm.infoOverlay': 'நிறமயமான மேற்பொருத்தம் ResQvision வண்ண இஞ்சினில் இயங்கும் நிகழ்நேர IR படம் — Colorize பக்கத்தில் பயன்படுத்தப்படும் அதே பைப்லைன் — NASA முன்கூட்டியே உருவாக்கிய படம் அல்ல.',
-  'lm.infoSwathGap': 'மேற்பொருத்தத்தில் ஒரு மெல்லிய கர்ண கடை காணப்படலாம் — அது உண்மையான சாதன சுழற்சி பாதை கிடை (அந்த நாள் அங்கு தரவு சேகரிக்கவில்லை), வண்ணமயமாக்காமல் ஊடுபாதுவாக காட்டப்படுகிறது.',
-  'lm.infoModis': 'MODIS/VIIRS வடமுனை-சுழற்சி சாதனைகள் — இந்தியா மீது ஒரு நாளுக்கு ஒரு முறை கடந்து செல்லும். தானியங்கி புதுப்பித்தல் ஒவ்வொரு 30 நிமிஷமும் சோதிக்கிறது; நேரடி INSAT (புவிச் சுழற்சி) இணைப்பு வரும் வரை தோராயமாக நாளுக்கு ஒரு முறை மட்டுமே வேறு படம் கிடைக்கும்.',
-  'lm.infoStreetMap': 'அதிக ஜூமில் சாலை பெயர்களைக் காண மேல்-வலம் படர்கள் மூலம் அடிப்படை படத்தை ஸ்ட்ரீட் மேப் (OSM) ஆக மாற்றுங்கள்.',
-  'lm.sessionHistory': 'அமர்வு வரலாறு',
-  'lm.noHistoryYet': 'வரலாறு இல்லை',
-  'lm.cloud': 'மேகம்',
-  'lm.hide': '← மறை',
-  'lm.controls': '→ கண்ட்ரோல்கள்',
-  'lm.pipelineRealNote': '— பைப்லைன் உண்மையானது; MODIS/VIIRS இந்தியாவை நாளுக்கு தோராயமாக ஒரு முறை கடக்கும், எனவே மீண்டும் முயற்றல் அல்லது அடுத்த தினசரி கடவுதலை எதிர்பார்ப்பது பொதுவாக தீர்க்கும்.',
-  'lm.justNow': 'இப்போதுதான்',
-  'lm.minAgo': '{n} நிமிஷமும் முன்',
-  'lm.hrAgo': '{n} மணிநேரம் முன்',
-  'lm.never': 'எப்போதும் இல்லை',
-  'lm.weatherLabel': 'வானிலை —',
-
-  'cm.colormap': 'வண்ண வரைபடம்',
-  'cm.intensity': 'தீவிரம்',
-  'cm.jet': 'நீலம்→சயன்→மஞ்சள்→சிவப்பு. பாரம்பரிய வெப்ப வரைபடம்.',
-  'cm.turbo': 'மேம்பட்ட வானவில்ல். சிறந்த ஒருமுகத்தன்மை.',
-  'cm.inferno': 'கருப்பு→ஊதா→மஞ்சள். உயர் முரண்பாடு இருண்ட காட்சிகள்.',
-  'cm.plasma': 'ஊதா→இளம்சிவப்பு→மஞ்சள். மென்மையான அறிவியல் காட்சிப்படுத்தல்.',
-
-  'cp.dataInput': 'தரவு இன்புட்',
-  'cp.uploadSample': 'மாதிரி IR படத்தைப் பதிவேற்றும்',
-  'cp.sampleImages': 'மாதிரி IR படங்கள்',
-  'cp.processingStatus': 'செயலாக்குகிறது…',
-  'cp.colorizedOutput': 'வண்ணமயாக்கப்பட்ட வெளியீடு',
-  'cp.awaitingInput': 'உள்ளீட்டை எதிர்பார்க்கிறது — தொடங்க IR படத்தைப் பதிவேற்றுங்கள்',
-  'cp.aiModelActive': 'AI மாதிரி செயலில்',
-  'cp.reProcess': 'மீண்டும் செயலாக்கு',
-  'cp.export': 'ஏற்றுமதி',
-  'cp.noDataYet': 'தரவு இல்லை — முதலில் படத்தைப் பதிவேற்றுங்கள்',
-  'cp.sceneAnalysis': 'காட்சி பகுபாய்வு',
-  'cp.quality': 'தரம்',
-  'cp.temporalComparison': 'கால ஒப்பீடு',
-  'cp.selectDate': 'தேதியைத் தேர்ந்தெடுங்கள்',
-  'cp.compare': 'ஒப்பிடு',
-
-  'dash.featureCards': 'அம்ச அட்டைகள்',
-  'dash.workflow': 'பணிபாய்வு',
-  'dash.footerNote': 'ResQvision — IR பகுபாய்வு தளம்',
-  'dash.featColorizeTitle': 'IR பட வண்ணமயமாக்கல்',
-  'dash.featColorizeDesc': 'கருப்பு-வெள்ளை IR படங்களை JET, TURBO, INFERNO, PLASMA வண்ண வரைபடங்களாக மாற்றும்.',
-  'dash.featQualityTitle': 'தர மதிப்பீடு',
-  'dash.featQualityDesc': 'PSNR, SSIM, FID மெட்ரிக்குகள் மற்றும் மேகமூட்ட சதவீதம் கணக்கிடுதல்.',
-  'dash.featSceneTitle': 'காட்சி பகுபாய்வு',
-  'dash.featSceneDesc': 'வானிலை, தாவரவியல் (NDVI), நீர் நிலைகள், நகர வெப்ப தீவுகள் AI மூலம் கணடறிதல்.',
-  'dash.featChangeTitle': 'பேரிடர் மாற்ற கண்டறிதல்',
-  'dash.featChangeDesc': 'பாதித்த பகுதிகளை கண்டறிய முன்-பின் படங்களை ஒப்பிடுதல், சேத தீவிரத்தை மதிப்பிடுதல்.',
-  'dash.featMultiTitle': 'பல-தெளிவு பகுபாய்வு',
-  'dash.featMultiDesc': 'INSAT-3DS (மாநில), Sentinel-1 (மாவட்ட), Cartosat-3 (தெரு) மட்டங்கள்.',
-  'dash.featAlertsTitle': 'நிகழ்நேர எச்சரிக்கைகள்',
-  'dash.featAlertsDesc': 'மேகமூட்டம், வெப்பம் அல்லது மாற்ற வரம்புகள் மீறினால் தானியங்கி கண்டறிதல்.',
-  'dash.startAnalysis': 'பகுபாய்வை துவங்கு',
-  'dash.disasterDetection': 'பேரிடர் கண்டறிதல்',
-  'dash.heroSubtitle': 'INSAT, Landsat, Cartosat மூத IR படங்களை வானிலை, தாவரவியல் மற்றும் பேரிடர் மேலாண்மைக்கான ஆட்சிக்க தகவல்களாக மாற்றும்.',
-  'dash.modulesActive': '6 பகுதிகள் இயலில்',
-
-  'al.activeAlerts': 'செயலிலுள்ள எச்சரிக்கைகள்',
-  'al.dismissAll': 'அனைத்தையும் நிராகரி',
-  'al.mostAffectedRegion': 'மிகுந்த பாதித்த பகுதி',
-  'al.zone': 'பகுதி',
-  'al.zoneChange': 'பகுதி மாற்றம்',
-  'al.changeIntensity': 'மாற்ற தீவிரம்',
-  'al.emailNotify': 'மோசமான நிகழ்வுகள் ஏற்படும்போது மின்னஞ்சல் மூலம் அறிவித்தல் பெறுங்கள்',
-  'al.subscribedMsg': 'ResQvision எச்சரிக்கைகளுக்கு பதிவு செய்துள்ளீர்கள்',
-  'al.dismissing': 'நிராகரிக்கிறது…',
-
-  'an.psnr': 'PSNR',
-  'an.ssim': 'SSIM',
-  'an.filter': 'வடிகட்டி',
-  'an.allTypes': 'அனைத்து வகைகள்',
-  'an.table': 'பகுபாய்வு அட்டவணை',
-  'an.satellite': 'சாதனை',
-  'an.actions': 'செயல்கள்',
-  'an.view': 'பார்',
-
-  'al.emailInvalid': 'செல்லுபடியாகும் மின்னஞ்சல் முகவரியை உள்ளிடும் (எ.கா. you@example.com).',
-  'al.subscribeError': "பதிவு முடிக்க முடியவில்லை: {err}. சிக்கல் தொடருந்தால்,",
-  'al.emailNotifyDesc': 'அதிக தீவிரமான மாற்றம் கணடறியப்படும் போது உடனடியாக மின்னஞ்சல் பெற பதிவுசெய்யுங்கள் — எச்சரிக்கைகளில் மிகுந்த பாதித்த பருதி (பகுதி, ஆயங்கூறுகள், மாற்ற தீவிரம்) உள்ளடக்கியுள்ளன. எந்தவொரு எச்சரிக்கை மின்னஞ்சலிலுள்ள இணைப்பு வழியாக எப்போதுவேண்டுமானாலும் பதிவுநீக்கம் செய்யலாம்.',
-  'al.emailPlaceholder': 'you@example.com',
-  'al.regionPlaceholder': 'பகுதி (தேவை இல்லை, எ.கா. தமிழ்நாடு)',
-
-  'cd.population': 'மக்கள்தொகை',
-  'cd.populationExposed': 'பாதிப்புக்குள்',
-  'cd.msgChangeDetected': '{sev} மாற்றம் கணடறியப்பட்டது: {pct}% பரப்பளவு பாதித்துள்ளது{zoneMsg}',
-  'cd.msgZone': ' — மிகுத பாதித்த பருதி: {name}, {pct}% மாற்றம்',
-  'cd.msgAutoBaseline': 'தானியங்கி: முன்னாடைத்தளம் {date}: {pct}% பரப்பளவு பாதித்துள்ளது',
-  'cd.msgHighCloud': 'அதிக மேகமூட்டம் கணடறியப்பட்டது: {pct}%',
-  'cd.msgHeatIsland': 'நகர வெப்ப தீவு கணடறியப்பட்டது: {pct}%',
-  'cd.msgStorm': 'செயற்கோள் படத்தில் புயல் நிலை கணடறியப்பட்டது',
-  'cd.msgVegetationLoss': 'குறைவான தாவரவியல் போர்வு — வறற்சி அல்லது பாலைவனமயமாகுதல்',
-  'cd.msgAutoChange': 'தானியங்கி: {sev} மாற்றம்: {pct}%',
-  'cd.msgBaselineVs': 'முன்னாடைத்தளம் {base} vs {cur}',
-  'cd.infrastructure': 'உள்கட்டமைப்பு ஆபத்து',
-  'cd.severityLevel': 'தீவிரம்',
-  'cd.areaKm2': 'பாதித்த பரப்பளவு',
-
-  'sa.sceneEmpty': 'காட்சியை பகுபாய்வு செய்ய படம் பதிவேற்றுங்கள்',
-  'sa.cloudDetected': 'மேகமூட்டம் கணடறியப்பட்டது',
-  'sa.ndviIndex': 'NDVI குறியீடு',
-  'sa.denseVegetation': 'அடர் தாவரவியல்',
-  'sa.moderateVegetation': 'மிதமான தாவரவியல்',
-  'sa.sparseVegetation': 'அரையான தாவரவியல்',
-  'sa.bareSoil': 'வெற்றி மண்',
-  'sa.waterNoVegetation': 'நீர் / தாவரவியல் இல்லை',
-  'sa.waterBodies': 'நீர் நிலைகள்',
-  'sa.waterDesc': 'ஆறுகள், ஏரிகள், கடலோர பகுதிகள்',
-  'sa.urbanHeat': 'நகர வெப்ப தீவுகள்',
-  'sa.urbanHeatDesc': 'வெப்ப பகுதிகள் கணடறியப்பட்டன',
-  'sa.vegetationCover': 'தாவரவியல் போர்வு',
-  'sa.vegetationDesc': 'காடுகள், பயிர்கள், புல்மைகள்',
-  'sa.legend': 'காட்சி குறியீடு',
-  'sa.water': 'நீர்',
-  'sa.vegetation': 'தாவரவியல்',
-  'sa.urbanHot': 'நகர/வெப்பம்',
-  'sa.cloud': 'மேகம்',
-
-  'cp.metricsEmpty': 'தர மெட்ரிக்குகளை கணக்கிட படம் பதிவேற்றுங்கள்',
-  'cp.psnr': 'PSNR',
-  'cp.psnrDesc': 'முதல் சிக்னல்-டு-இரவு விகிதம் — அதிகமானது நல்லது',
-  'cp.ssim': 'SSIM',
-  'cp.ssimDesc': 'கட்டமைப்பு ஒருமைக்குறியீடு — அதிகபட்சம் 1.0',
-  'cp.fid': 'FID ச்கோர்',
-  'cp.fidDesc': 'பிரேசெட் இன்செப்ஷன் தூரம் — குறைவானது நல்லது',
-  'cp.cloudCover': 'மேகமூட்டம்',
-  'cp.cloudCoverDesc': 'மதிப்பிடப்பட்ட மேகமூட்ட சதவீதம்',
-  'cp.clickReplace': 'மாற்ற க்ளிக் செய்யுங்கள்',
-
-  'cp.tcArchiveLoaded': 'காப்பக படம் பதிவேற்றப்பட்டது — மாற்ற க்ளிக் செய்யுங்கள்',
-  'cp.tcUploadOwn': 'அல்லது உங்கள் சொந்த காப்பக படத்தை பதிவேற்றுங்கள்',
-  'cp.tcPickEarlier': 'காப்பக படத்தை பதிவேற்ற இன்று முன்னர் ஏதேனும் தேதியை தேர்ந்தெடுக்கவும்.',
-  'cp.tcLoading': 'காப்பக படம் பதிவேறுகிறது',
-  'cp.tcHistorical': 'வரலாற்று',
-  'cp.tcToday': 'இன்று',
-  'cp.tcArchive': 'காப்பகம்',
-  'cp.tcCurrentToday': 'தற்போது — இன்று',
-  'cp.tcUploadFirst': 'முதலில் பதிவேற்றுங்கள்',
-  'cp.tcLeft': 'இடது',
-  'cp.tcRight': 'வலது',
-  'cp.tcArchiveImg': 'காப்பக படம்',
-  'cp.tcCurrentOutput': 'தற்போதைய வண்ணமயமாக்கிய வெளியீடு',
-  'cp.tcSameColormap': 'இரண்டும் ஒரு வண்ண வரைபடம் வழியாக செல்கின்றன',
-};
-
-export const translations: Record<Language, Record<string, string>> = { en, ta };
+// Site is English-only — no language switching.
 
 interface LanguageContextType {
   lang: Language;
@@ -816,14 +417,14 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType>({
   lang: 'en',
   setLang: () => {},
-  t: (key) => key,
+  t: (key: string) => key,
 });
 
 /**
- * Translates data-generated alert messages persisted in Supabase (English).
- * Keeps numbers/coordinates in English; converts the readable template to Tamil.
+ * Formats data-generated alert messages persisted in Supabase using the UI string dictionary.
+ * Keeps numbers/coordinates in English.
  */
-export function formatAlertMessage(message: string, t: (key: string, params?: Record<string, string | number>) => string, _lang?: string): string {
+export function formatAlertMessage(message: string, t: (key: string, params?: Record<string, string | number>) => string): string {
   if (!message) return message;
 
   // Newest format: "{sev} change detected: {pct}% of area affected — worst affected zone: {name}, {pct}% changed"
@@ -863,21 +464,9 @@ export function formatAlertMessage(message: string, t: (key: string, params?: Re
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>(() => {
-    const saved = localStorage.getItem('resqvision-lang');
-    return saved === 'ta' ? 'ta' : 'en';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('resqvision-lang', lang);
-  }, [lang]);
-
-  const setLang = (l: Language) => setLangState(l);
-
-  // t(key, params) returns Tamil when available, otherwise the English value — never the raw key.
-  // {placeholder} values in the template are replaced from params.
+  // English-only — no switching, no persistence needed.
   const t = (key: string, params?: Record<string, string | number>) => {
-    let out = translations.ta[key] ?? en[key] ?? key;
+    let out = en[key] ?? key;
     if (params) {
       for (const [k, v] of Object.entries(params)) out = out.split(`{${k}}`).join(String(v));
     }
@@ -885,7 +474,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang: 'en', setLang: () => {}, t }}>
       {children}
     </LanguageContext.Provider>
   );

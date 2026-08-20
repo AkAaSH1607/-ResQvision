@@ -1,5 +1,4 @@
 import { Satellite, Activity, Bell, Database, Radio, Siren } from 'lucide-react';
-import { useLanguage } from '../lib/i18n';
 
 interface HeaderProps {
   activePage: string;
@@ -26,7 +25,6 @@ const tabLabels: Record<string, string> = {
 };
 
 export default function Header({ activePage, onNavigate, alertCount }: HeaderProps) {
-  const { lang, setLang } = useLanguage();
   const tabs = tabKeys.map(tab => ({ ...tab, label: tabLabels[tab.id] }));
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-satellite-border bg-satellite-card/95 backdrop-blur-sm">
@@ -93,14 +91,6 @@ export default function Header({ activePage, onNavigate, alertCount }: HeaderPro
             title="Alert Notifications"
           >
             <Bell size={16} className={alertCount > 0 ? 'text-accent-orange' : 'text-slate-400'} />
-          </button>
-          {/* Language toggle */}
-          <button
-            onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
-            className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-satellite-border hover:bg-satellite-muted/50 transition-colors text-slate-300"
-            title={lang === 'en' ? 'Switch to Tamil' : 'English-க்கு மாறு'}
-          >
-            {lang === 'en' ? 'தமிழ்' : 'EN'}
           </button>
         </div>
       </div>

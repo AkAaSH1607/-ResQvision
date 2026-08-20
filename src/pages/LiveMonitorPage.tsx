@@ -40,19 +40,9 @@ function weatherIconAndLabel(code: number | null) {
   return { Icon: Cloud, label: '—' };
 }
 
-const TA_WEATHER: Record<string, string> = {
-  '—': 'வானிலை —',
-  Clear: 'தெளிவான வானிலை',
-  'Partly Cloudy': 'பகுதி மேகமூட்டம்',
-  Cloudy: 'மேகமூட்டம்',
-  Fog: 'மூதல்',
-  Rain: 'மழை',
-  Snow: 'பனி',
-  Thunderstorm: 'இடி மின்னலுடன் மழை',
-};
 
 export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: () => void }) {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [selectedSourceId, setSelectedSourceId] = useState<string>(SATELLITE_SOURCES[0].id);
   const [colormap, setColormap] = useState<ColormapName>(SATELLITE_SOURCES[0].defaultColormap);
   const [intensity, setIntensity] = useState(1.0);
@@ -221,7 +211,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           </div>
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-satellite-muted/30 border border-satellite-border text-[10px] font-mono text-slate-300">
             <weather.Icon size={11} className="text-accent-blue" />
-            {liveWeather.tempC !== null ? `${Math.round(liveWeather.tempC)}°C · ${lang === 'ta' ? (TA_WEATHER[weather.label] ?? weather.label) : weather.label}` : t('lm.weatherLabel')}
+            {liveWeather.tempC !== null ? `${Math.round(liveWeather.tempC)}°C · ${weather.label}` : t('lm.weatherLabel')}
           </div>
         </div>
         <div className="flex items-center gap-2">
