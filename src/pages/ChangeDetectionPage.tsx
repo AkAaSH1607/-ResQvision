@@ -83,6 +83,8 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   }, []);
 
   // Render the change map (red = most affected, green-tinted least affected zone overlay)
+  // Uses a ref for prediction so the callback identity stays stable (prevents
+  // the infinite re-render loop caused by runAutoScan depending on this fn).
   const renderChangeMap = useCallback((det: ChangeDetectionResult, fresh: ColorizedFrame) => {
     const canvas = changeCanvasRef.current;
     if (!canvas) return;
@@ -198,7 +200,6 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         setPredictionLoading(true);
         void computePrediction({ bbox: source.bbox, width: frame.width, height: frame.height })
           .then(r => {
-            if (r.available) renderChangeMap(det, frame);
             setPrediction(r);
           })
           .catch(() => setPrediction(null))
@@ -237,7 +238,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
     } finally {
       setProcessing(false);
     }
-  }, [threshold, onAlertsChanged, renderChangeMap]);
+  }, [threshold, onAlertsChanged, resolveZoneNames]);
 
   useEffect(() => {
     runAutoScan();

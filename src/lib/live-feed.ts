@@ -36,9 +36,20 @@ export function buildProxyUrl(source: SatelliteSource, daysBack = 1): string {
 
 export async function fetchSatelliteImageAsBlob(source: SatelliteSource, daysBack = 1): Promise<{ blob: Blob; date: string; daysBack: number }> {
   const url = buildProxyUrl(source, daysBack);
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-  });
+  // Abort after 20s to prevent indefinite buffering if the proxy is slow.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      signal: controller.signal,
+    });
+  } catch {
+    throw new Error('Satellite frame timed out — try again in a moment');
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(err.error ?? `Failed to fetch satellite data`);
