@@ -133,7 +133,7 @@ export default function LiveDisasterPage() {
         }))
         .filter(
           (e: USGSEvent) =>
-            e.lat >= 5 && e.lat <= 38 && e.lon >= 67 && e.lon <= 99 &&
+            e.lat >= 6 && e.lat <= 35 && e.lon >= 68 && e.lon <= 98 &&
             e.mag >= 2.5
         )
         .sort((a: USGSEvent, b: USGSEvent) => b.mag - a.mag || b.time - a.time);
@@ -169,7 +169,7 @@ export default function LiveDisasterPage() {
         })
         .filter(
           (e: EONETEvent) =>
-            e.lat >= 5 && e.lat <= 38 && e.lon >= 67 && e.lon <= 99
+            e.lat >= 6 && e.lat <= 35 && e.lon >= 68 && e.lon <= 98
         );
       setEonetEvents(indiaEvents);
     } catch {
