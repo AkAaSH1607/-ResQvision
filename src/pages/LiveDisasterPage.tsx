@@ -7,6 +7,39 @@ import { SATELLITE_SOURCES } from '../lib/live-feed';
 import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
 import { useLanguage, formatAlertMessage } from '../lib/i18n';
 
+/** Real-time earthquake event from USGS GeoJSON feed (free, no API key). */
+interface USGSEvent {
+  id: string;
+  mag: number;
+  place: string;
+  time: number; // unix ms
+  url: string;
+  lat: number;
+  lon: number;
+  depth: number;
+  type: string;
+}
+
+const USGS_FEED_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson';
+
+function usgsSeverity(mag: number): { color: string; label: string; ring: string } {
+  if (mag >= 7.0) return { color: '#DC2626', label: 'CRITICAL', ring: 'border-red-500/50' };
+  if (mag >= 5.5) return { color: '#EF4444', label: 'HIGH', ring: 'border-red-400/40' };
+  if (mag >= 4.5) return { color: '#F59E0B', label: 'MEDIUM', ring: 'border-amber-400/40' };
+  return { color: '#84CC16', label: 'LOW', ring: 'border-lime-400/40' };
+}
+
+function timeAgoUSGS(unixMs: number): string {
+  const diff = Date.now() - unixMs;
+  if (diff < 0) return 'just now';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 const SEVERITY_META: Record<string, { color: string; labelKey: string; ring: string }> = {
   critical: { color: '#DC2626', labelKey: 'critical', ring: 'border-red-500/50' },
   high: { color: '#EF4444', labelKey: 'high', ring: 'border-red-400/40' },
@@ -43,6 +76,36 @@ export default function LiveDisasterPage() {
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [dismissError, setDismissError] = useState('');
 
+  // Real-time USGS earthquake events
+  const [usgsEvents, setUsgsEvents] = useState<USGSEvent[]>([]);
+  const [usgsLoading, setUsgsLoading] = useState(true);
+
+  const fetchUSGS = async () => {
+    try {
+      const res = await fetch(USGS_FEED_URL, {
+        headers: { 'User-Agent': 'ResQvision-Hackathon/1.0' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const events: USGSEvent[] = (data.features ?? []).map((f: any) => ({
+        id: f.id,
+        mag: f.properties.mag ?? 0,
+        place: f.properties.place ?? 'Unknown',
+        time: f.properties.time ?? 0,
+        url: f.properties.url ?? '',
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
+        depth: f.geometry.coordinates[2] ?? 0,
+        type: f.properties.type ?? 'earthquake',
+      }));
+      setUsgsEvents(events);
+    } catch {
+      setUsgsEvents([]);
+    } finally {
+      setUsgsLoading(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     setDismissError('');
@@ -57,7 +120,8 @@ export default function LiveDisasterPage() {
 
   useEffect(() => {
     loadData();
-    const timer = setInterval(loadData, 60 * 1000);
+    fetchUSGS();
+    const timer = setInterval(() => { loadData(); fetchUSGS(); }, 60 * 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -224,7 +288,91 @@ export default function LiveDisasterPage() {
         </div>
       </div>
 
-      {/* Event feed */}
+      {/* Real-Time Global Disasters (USGS Earthquake Feed) */}
+      <div className="bg-satellite-card border border-satellite-border rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-satellite-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Siren size={13} className="text-red-400" />
+            <span className="text-xs text-slate-300 font-semibold">Real-Time Global Disasters (USGS)</span>
+          </div>
+          <span className="text-[10px] text-slate-500">
+            {usgsLoading ? 'Fetching…' : `${usgsEvents.length} events today`}
+          </span>
+        </div>
+        <div className="p-4">
+          {usgsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-accent-orange border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : usgsEvents.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="text-[11px] text-slate-500">No significant earthquakes today. Data source: USGS Earthquake Hazards Program.</div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {usgsEvents
+                .sort((a, b) => b.mag - a.mag || b.time - a.time)
+                .slice(0, 8)
+                .map(evt => {
+                  const sev = usgsSeverity(evt.mag);
+                  return (
+                    <div
+                      key={evt.id}
+                      className={`flex items-center gap-3 rounded-lg border ${sev.ring} bg-satellite-bg/50 px-3 py-2`}
+                    >
+                      {/* Magnitude badge */}
+                      <div
+                        className="shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center"
+                        style={{ background: `${sev.color}22`, border: `1px solid ${sev.color}55` }}
+                      >
+                        <span className="text-[9px] text-slate-400 leading-none">M</span>
+                        <span className="text-sm font-mono font-bold" style={{ color: sev.color }}>
+                          {evt.mag.toFixed(1)}
+                        </span>
+                      </div>
+
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-slate-200 truncate">{evt.place}</div>
+                        <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                          <span>Earthquake</span>
+                          <span>· {evt.depth.toFixed(1)} km deep</span>
+                          <span>· {timeAgoUSGS(evt.time)}</span>
+                        </div>
+                      </div>
+
+                      {/* Severity */}
+                      <span
+                        className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
+                        style={{ background: `${sev.color}22`, color: sev.color, border: `1px solid ${sev.color}55` }}
+                      >
+                        {sev.label}
+                      </span>
+
+                      {/* Link to USGS */}
+                      {evt.url && (
+                        <a
+                          href={evt.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 text-[10px] text-blue-400 hover:text-blue-300"
+                          title="View on USGS"
+                        >
+                          ↗
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+          <div className="mt-2 text-[9px] text-slate-600">
+            Source: USGS Earthquake Hazards Program — real-time data, updated every minute.
+          </div>
+        </div>
+      </div>
+
+      {/* Satellite-Detected Events */}
       <div className="bg-satellite-card border border-satellite-border rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 border-b border-satellite-border flex items-center justify-between">
           <div className="flex items-center gap-2">
