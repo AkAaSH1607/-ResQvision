@@ -62,9 +62,14 @@ function buildGIBSUrl(layer: string, date: string, bbox: string, width = 1024, h
   return `${GIBS_WMS}?${params.toString()}`;
 }
 
-function getRecentDate(daysBack = 2): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysBack);
+// Compute today's date in IST (UTC+5:30). Using raw UTC would shift the
+// "freshest frame" one day older for Indian users after 18:30 UTC, which is
+// exactly the window in which ResQvision runs live (IST afternoon/evening).
+function getRecentDate(daysBack = 1): string {
+  const now = new Date();
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const d = new Date(now.getTime() + istOffsetMs);
+  d.setDate(d.getUTCDate() - daysBack);
   return d.toISOString().split("T")[0];
 }
 
@@ -89,7 +94,9 @@ Deno.serve(async (req: Request) => {
     const bbox = url.searchParams.get("bbox") ?? "8,68,37,98"; // India default
     const width = parseInt(url.searchParams.get("width") ?? "1024");
     const height = parseInt(url.searchParams.get("height") ?? "1024");
-    // Try today -1 day first (freshest possible); auto-falls back to -2, -3 below if unavailable
+    // Try yesterday first (freshest possible frame GIBS ever has for MODIS
+    // land products — same-day imagery isn't available for these layers);
+    // auto-falls back to -2, -3 below if unavailable
     let daysBack = parseInt(url.searchParams.get("days_back") ?? "1");
     const date = url.searchParams.get("date") ?? getRecentDate(daysBack);
 

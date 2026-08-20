@@ -10,10 +10,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Get the best available satellite data date (2 days back)
-function getRecentDate(daysBack = 2): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysBack);
+// Get the best available satellite data date — IST-aware so Indian users
+// always see the freshest valid frame (MODIS same-day imagery unavailable).
+function getRecentDate(daysBack = 1): string {
+  const now = new Date();
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const d = new Date(now.getTime() + istOffsetMs);
+  d.setDate(d.getUTCDate() - daysBack);
   return d.toISOString().split('T')[0];
 }
 
@@ -121,7 +124,7 @@ export default function SatelliteMap({
   onMove,
 }: SatelliteMapProps) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const date = dataDate ?? getRecentDate(2);
+  const date = dataDate ?? getRecentDate(1);
 
   return (
     <div className="relative w-full h-full">
@@ -233,6 +236,9 @@ export default function SatelliteMap({
         <div className="text-[10px] font-semibold text-white leading-tight truncate">{date}</div>
         <div className="text-[8px] text-white/40 font-mono truncate">
           {colorizedOverlay ? sourceLabel : `${sourceLabel} · MODIS Terra`}
+        </div>
+        <div className="text-[8px] text-white/40 font-mono truncate">
+          {date === getRecentDate(1) ? 'Latest available frame' : 'Closest frame available'}
         </div>
       </div>
     </div>
