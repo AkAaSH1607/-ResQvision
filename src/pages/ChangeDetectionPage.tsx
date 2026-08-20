@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { AlertTriangle, Download, ArrowRight, MapPin, Satellite, Radio, FileText } from 'lucide-react';
+import { AlertTriangle, Download, ArrowRight, MapPin, Satellite, Radio, FileText, TrendingUp, Activity } from 'lucide-react';
 import { detectChanges } from '../lib/change-detection';
 import type { AutoChangeReport, ChangeDetectionResult } from '../lib/types';
 import { saveAnalysis, saveAlerts } from '../lib/supabase';
@@ -13,6 +13,7 @@ import { SATELLITE_SOURCES } from '../lib/live-feed';
 import type { ColormapName } from '../lib/types';
 import { generateIncidentReport, type IncidentReport } from '../lib/incident-report';
 import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
+import { recordScan, readSamples, computePrediction, type PredictionResult } from '../lib/disaster-prediction';
 import { useLanguage } from '../lib/i18n';
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -47,6 +48,9 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   const [zoneNames, setZoneNames] = useState<Map<string, string> | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [incidentReport, setIncidentReport] = useState<IncidentReport | null>(null);
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [predictionLoading, setPredictionLoading] = useState(false);
+  const frameDimRef = useRef<{ width: number; height: number } | null>(null);
 
   // Resolve human-readable local names for every zone (cached in localStorage
   // so only the first lookup per scan triggers a network call)
@@ -112,9 +116,26 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         const leastLabel = zoneNames?.get(least.name) ?? least.name;
         ctx.fillText(`LEAST AFFECTED: ${leastLabel} (${least.changePercent}% changed)`, least.bbox.x0 * scale + 6, least.bbox.y1 * scale - 8);
       }
+
+      // Overlay: predicted next-step zone (T3) — dashed purple box
+      const pred = prediction;
+      if (pred?.available && pred.predictedBbox) {
+        const pb = pred.predictedBbox;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = '#A855F7';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pb.x0 * scale, pb.y0 * scale, (pb.x1 - pb.x0) * scale, (pb.y1 - pb.y0) * scale);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
+        ctx.fillRect(pb.x0 * scale, pb.y0 * scale, (pb.x1 - pb.x0) * scale, (pb.y1 - pb.y0) * scale);
+        ctx.fillStyle = '#C084FC';
+        ctx.font = 'bold 12px ui-monospace, monospace';
+        const predLabel = pred.predictedZoneName ?? `${pred.direction} (${pred.predictedChangePercent.toFixed(1)}%)`;
+        ctx.fillText(`PREDICTED T3: ${predLabel} (${pred.direction})`, pb.x0 * scale + 6, pb.y0 * scale + 18);
+      }
     };
     img.src = fresh.dataUrl;
-  }, []);
+  }, [prediction, zoneNames]);
 
   // Main automatic loop: fetch fresh frame → store as next baseline → compare vs previous baseline
   const runAutoScan = useCallback(async () => {
@@ -150,6 +171,16 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         setPhase('ready');
         renderChangeMap(det, frame);
         resolveZoneNames(det, frame);
+        recordScan({ worstZone: det.region?.worstZone ?? null, width: frame.width, height: frame.height });
+        frameDimRef.current = { width: frame.width, height: frame.height };
+        setPredictionLoading(true);
+        void computePrediction({ bbox: source.bbox, width: frame.width, height: frame.height })
+          .then(r => {
+            if (r.available) renderChangeMap(det, frame);
+            setPrediction(r);
+          })
+          .catch(() => setPrediction(null))
+          .finally(() => setPredictionLoading(false));
 
         // Persist analysis record + alerts with the exact affected region
         const record = await saveAnalysis({
@@ -298,9 +329,14 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
               <span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500/60 border border-emerald-400 ml-2" /> Least affected
             </span>
             {result && (
-              <button onClick={downloadChangeMap} className="p-1 rounded hover:bg-satellite-muted/50 transition-colors">
-                <Download size={12} className="text-slate-400" />
-              </button>
+              <>
+                <button onClick={downloadChangeMap} className="p-1 rounded hover:bg-satellite-muted/50 transition-colors">
+                  <Download size={12} className="text-slate-400" />
+                </button>
+                <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-sm border border-dashed border-purple-400 bg-purple-400/40 ml-2" /> Predicted T3
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -484,6 +520,51 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                     </div>
                   </div>
                 )}
+
+                {/* Disaster Progression Prediction */}
+                <div className="pt-3 border-t border-satellite-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp size={13} className="text-purple-400" />
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Disaster Progression Prediction</span>
+                    {predictionLoading && <Activity size={11} className="text-purple-400 animate-pulse" />}
+                  </div>
+                  {prediction?.available ? (
+                    <div className="bg-satellite-bg rounded-lg border border-purple-500/30 p-3 text-xs space-y-2">
+                      {/* T0→T1→T2→T3 mini timeline */}
+                      <div className="flex items-stretch justify-between gap-1">
+                        {(() => {
+                          const hist = readSamples();
+                          const steps = ['T0', 'T1', 'T2', 'T3'];
+                          return steps.map((step, i) => {
+                            const s = hist[i];
+                            const pct = s ? `${s.worstChangePercent.toFixed(1)}%` : '?%';
+                            const name = s?.worstZoneName ?? prediction.predictedZoneName ?? '—';
+                            return (
+                              <div key={step} className={`flex-1 rounded-md p-1.5 text-center ${i === 3 ? 'bg-purple-500/15 border border-dashed border-purple-400' : 'bg-satellite-card border border-satellite-border'}`}>
+                                <div className={`text-[9px] font-mono ${i === 3 ? 'text-purple-300' : 'text-slate-500'}`}>{step}</div>
+                                <div className={`text-[10px] font-semibold truncate ${i === 3 ? 'text-purple-300' : 'text-slate-300'}`}>{name}</div>
+                                <div className={`text-[10px] font-mono ${i === 3 ? 'text-purple-400' : 'text-slate-500'}`}>{pct}</div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        <div><span className="text-slate-500">Direction</span><div className="text-slate-200">{prediction.direction}</div></div>
+                        <div><span className="text-slate-500">Est. Speed</span><div className="text-slate-200">~{prediction.speedKmh.toLocaleString()} km/h</div></div>
+                        <div><span className="text-slate-500">Trend</span><div className="text-slate-200">{prediction.trend}</div></div>
+                        <div><span className="text-slate-500">Confidence</span><div className="text-slate-200">{prediction.confidence}</div></div>
+                      </div>
+                      <div className="text-slate-400 leading-relaxed border-t border-satellite-border pt-1.5">
+                        {prediction.summary}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-satellite-bg rounded-lg border border-satellite-border p-3 text-[11px] text-slate-500">
+                      Forecast builds from repeated scans. Each automatic scan (every 30 min) records one checkpoint — the next checkpoint appears here. Run a scan now to seed the timeline.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ) : (

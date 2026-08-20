@@ -57,6 +57,14 @@ const FEATURES = [
     color: '#8B5CF6',
     tags: ['Auto-detect', 'Threshold', 'Severity'],
   },
+  {
+    icon: '📈',
+    title: 'dash.featPredictionTitle',
+    desc: 'dash.featPredictionDesc',
+    page: 'change',
+    color: '#A855F7',
+    tags: ['T0→T3 Forecast', 'Direction', 'Confidence'],
+  },
 ];
 
 const COLORMAPS = ['JET', 'TURBO', 'INFERNO', 'PLASMA'] as const;
@@ -187,7 +195,8 @@ export default function DashboardPage({ onNavigate }: Props) {
             { step: '03', label: 'Colorization Engine', color: '#10B981' },
             { step: '04', label: t('cp.qualityMetrics'), color: '#3B82F6' },
             { step: '05', label: t('cp.sceneAnalysis'), color: '#8B5CF6' },
-            { step: '06', label: `${t('al.title')} & ${t('cp.export')}`, color: '#EF4444' },
+            {step: '06', label: `${t('al.title')} & ${t('cp.export')}`, color: '#EF4444' },
+            {step: '07', label: 'Progression Forecast', color: '#A855F7' },
           ].map((s, i, arr) => (
             <div key={s.step} className="flex items-center gap-2">
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-satellite-bg border border-satellite-border">

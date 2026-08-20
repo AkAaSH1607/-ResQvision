@@ -376,6 +376,8 @@ const en: Record<string, string> = {
 
   // — Dashboard extras —
   'dash.featureCards': 'Feature Cards',
+  'dash.featPredictionTitle': 'Disaster Progression Prediction',
+  'dash.featPredictionDesc': 'Tracks scan checkpoints to forecast where the affected area may expand next — direction, speed and confidence',
   'dash.workflow': 'Workflow',
   'dash.footerNote': 'ResQvision — IR Analysis Platform',
 
