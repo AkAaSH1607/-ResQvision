@@ -104,12 +104,31 @@ export function estimateAffectedKm2(det: ChangeDetectionResult): number {
   const zoneW = wz.bbox.x1 - wz.bbox.x0;
   const zoneH = wz.bbox.y1 - wz.bbox.y0;
   const zonePixels = zoneW * zoneH;
-  // Only the changed fraction of zone pixels are affected
-  const changedPixels = zonePixels * (wz.changePercent / 100);
-  // Intensity-weighted: high intensity = full impact, low = partial
-  const intensityFactor = Math.min(1, wz.intensity / 128); // 0-255 scale, 128 = full
-  const affectedPixels = changedPixels * intensityFactor;
-  return Math.max(1, Math.round(affectedPixels * PX_AREA_KM2));
+  // REALISTIC DISASTER FOOTPRINT MODEL:
+  // The satellite pixel diff detects natural variation across the whole zone
+  // (clouds, thermal shifts). Real disasters affect a much smaller CORE area.
+  // We model this using a severity-tier approach:
+  //   critical: 2,000 – 20,000 km² (major flood, cyclone landfall)
+  //   high:     300 – 5,000 km²   (district-level flood, wildfire)
+  //   moderate: 50 – 800 km²      (localized landslide, flash flood)
+  //   low:      10 – 100 km²      (small incident)
+  // Within each tier, scale by the actual change intensity.
+  const changeFrac = Math.min(1, wz.changePercent / 100);
+  const intensityNorm = Math.min(1, wz.intensity / 255);
+  // Combined severity score (0-1)
+  const score = changeFrac * intensityNorm;
+  // Tier ranges (min, max km²)
+  let minKm2: number, maxKm2: number;
+  const sev = det.severity || 'low';
+  switch (sev) {
+    case 'Critical': minKm2 = 2000; maxKm2 = 20000; break;
+    case 'High': minKm2 = 300; maxKm2 = 5000; break;
+    case 'Moderate': minKm2 = 50; maxKm2 = 800; break;
+    default: minKm2 = 10; maxKm2 = 100; break;
+  }
+  // Scale within tier: low score → min, high score → max
+  const affectedKm2 = minKm2 + score * (maxKm2 - minKm2);
+  return Math.max(1, Math.round(affectedKm2));
 }
 
 /**
