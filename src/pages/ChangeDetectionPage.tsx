@@ -44,13 +44,19 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   const changeCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Local area names resolved via reverse-geocoding (OpenStreetMap Nominatim — free)
+  // Local area names resolved via reverse-geocoding (OpenStreetMap Nominatim — free).
+  // Kept in a ref and committed to React state ONCE per scan (after all zones
+  // resolve) so the page does not re-render 9 times and the map does not
+  // flicker while names are loading (fixes the "buffering again and again"
+  // loop caused by per-zone state updates).
+  const namesRef = useRef<Map<string, string>>(new Map());
   const [zoneNames, setZoneNames] = useState<Map<string, string> | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [incidentReport, setIncidentReport] = useState<IncidentReport | null>(null);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [predictionLoading, setPredictionLoading] = useState(false);
   const frameDimRef = useRef<{ width: number; height: number } | null>(null);
+  const lastDrawnFrameRef = useRef<string | null>(null);
 
   // Resolve human-readable local names for every zone (cached in localStorage
   // so only the first lookup per scan triggers a network call)
@@ -59,19 +65,28 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
     const source = SATELLITE_SOURCES[0];
     const geo = parseBBox(source.bbox);
     if (!geo) return;
+    // Fill the ref incrementally (map overlays read from the ref directly),
+    // then commit exactly ONE React state update when every zone is done.
     const map = new Map<string, string>();
     for (const z of det.region.zones) {
       const { lat, lon } = zoneCenterGeo(geo, z.bbox, fresh.width, fresh.height);
       const local = await reverseGeocode(lat, lon);
-      map.set(z.name, local ? `${local} (${z.name})` : z.name);
+      const label = local ? `${local} (${z.name})` : z.name;
+      map.set(z.name, label);
+      namesRef.current.set(z.name, label);
     }
-    setZoneNames(map);
+    setZoneNames(new Map(map));
   }, []);
 
   // Render the change map (red = most affected, green-tinted least affected zone overlay)
   const renderChangeMap = useCallback((det: ChangeDetectionResult, fresh: ColorizedFrame) => {
     const canvas = changeCanvasRef.current;
     if (!canvas) return;
+    // Guard: if nothing changed (same frame + same result zones), don't
+    // redraw — stops the map "buffering" again and again on React re-renders.
+    const drawKey = `${fresh.dataUrl.length}|${det.changedPixels}|${det.region?.worstZone?.changePercent ?? -1}`;
+    if (lastDrawnFrameRef.current === drawKey) return;
+    lastDrawnFrameRef.current = drawKey;
     const w = Math.min(fresh.width, 720);
     const scale = w / fresh.width;
     const h = Math.round(fresh.height * scale);
@@ -95,7 +110,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.strokeRect(wz.bbox.x0 * scale, wz.bbox.y0 * scale, (wz.bbox.x1 - wz.bbox.x0) * scale, (wz.bbox.y1 - wz.bbox.y0) * scale);
         ctx.fillStyle = '#EF4444';
         ctx.font = 'bold 12px ui-monospace, monospace';
-        const wzLabel = zoneNames?.get(wz.name) ?? wz.name;
+        const wzLabel = namesRef.current.get(wz.name) ?? wz.name;
         ctx.fillText(`MOST AFFECTED: ${wzLabel} (${wz.changePercent}% changed)`, wz.bbox.x0 * scale + 6, wz.bbox.y0 * scale + 18);
       }
 
@@ -113,7 +128,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.strokeRect(least.bbox.x0 * scale, least.bbox.y0 * scale, (least.bbox.x1 - least.bbox.x0) * scale, (least.bbox.y1 - least.bbox.y0) * scale);
         ctx.fillStyle = '#10B981';
         ctx.font = 'bold 12px ui-monospace, monospace';
-        const leastLabel = zoneNames?.get(least.name) ?? least.name;
+        const leastLabel = namesRef.current.get(least.name) ?? least.name;
         ctx.fillText(`LEAST AFFECTED: ${leastLabel} (${least.changePercent}% changed)`, least.bbox.x0 * scale + 6, least.bbox.y1 * scale - 8);
       }
 
@@ -135,7 +150,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
       }
     };
     img.src = fresh.dataUrl;
-  }, [prediction, zoneNames]);
+  }, [prediction]);
 
   // Main automatic loop: fetch fresh frame → store as next baseline → compare vs previous baseline
   const runAutoScan = useCallback(async () => {
@@ -166,6 +181,8 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
       // Also run region analysis for the UI breakdown (auto path uses severity-only alerts)
       if (autoReport) {
         const det = autoReport.result;
+        lastDrawnFrameRef.current = null; // new scan = fresh draw (clear guard)
+        namesRef.current.clear();
         setResult(det);
         setReport(autoReport);
         setPhase('ready');
@@ -289,6 +306,61 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
     const link = document.createElement('a');
     link.download = `disaster_map_${Date.now()}.png`;
     link.href = changeCanvasRef.current.toDataURL('image/png');
+    link.click();
+  };
+
+  // Region breakdown labels: prefer the local area name (town + state),
+  // keeping only the most meaningful parts so zones don't look identical.
+  const shortZoneLabel = (z: { name: string }, map: Map<string, string> | null) => {
+    const full = map?.get(z.name);
+    if (!full) return z.name;
+    // full format: "<local>, <state> (<zone>)" — keep "<local>, <state>"
+    const core = full.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return core || z.name;
+  };
+
+  // Download a per-region breakdown report — every zone with its local area
+  // name, bounding box, change % and intensity, so each affected region can be
+  // reviewed and acted on separately.
+  const downloadRegionReport = () => {
+    const det = result;
+    if (!det?.region || !zoneNames) return;
+    const lines = [
+      '══════════════════════════════════════════════════════',
+      '        RESQVISION — REGION BREAKDOWN REPORT',
+      '══════════════════════════════════════════════════════',
+      '',
+      `Overall severity : ${det.severity}`,
+      `Affected area    : ${det.affectedAreaPercent.toFixed(1)}% of scanned area`,
+      `Changed pixels   : ${det.changedPixels.toLocaleString()}`,
+      `Baseline         : ${report?.baselineDate ?? '—'}`,
+      `Current frame    : ${report?.currentDate ?? '—'}`,
+      '',
+      '─ ZONE-BY-ZONE (sorted worst → best) ───────────────',
+      ...det.region.zones
+        .slice()
+        .sort((a, b) => b.changePercent - a.changePercent)
+        .map((z, i) => {
+          const full = zoneNames.get(z.name) ?? z.name;
+          const core = full.replace(/\s*\([^)]*\)\s*$/, '').trim();
+          const flag = z.lowCoverage ? '  [swath gap — unreliable]' : '';
+          return [
+            `#${i + 1}  ${z.name}`,
+            `   Local area : ${core || z.name}`,
+            `   Change     : ${z.changePercent}% (${z.lowCoverage ? 'unreliable' : 'measured'})`,
+            `   Intensity  : ${z.intensity.toFixed(3)} / 1.0`,
+            `   Bounding px: (${z.bbox.x0}, ${z.bbox.y0}) → (${z.bbox.x1}, ${z.bbox.y1})${flag}`,
+            '',
+          ].join('\n');
+        }),
+      'Zones dominated by satellite swath gaps are flagged unreliable.',
+      '',
+      'Generated by ResQvision — zero-cost, client-side AI',
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.download = `region_breakdown_${Date.now()}.txt`;
+    link.href = URL.createObjectURL(blob);
     link.click();
   };
 
@@ -470,11 +542,18 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
 
               {result.region && (
                 <div className="bg-satellite-card border border-satellite-border rounded-lg p-3">
-                  <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">{t('cd.regionBreakdown')}</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('cd.regionBreakdown')}</span>
+                    {zoneNames && (
+                      <button onClick={downloadRegionReport} className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1">
+                        <Download size={10} /> {t('cd.download')}
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     {result.region.zones.map((z: { name: string; changePercent: number; lowCoverage?: boolean }) => (
                       <div key={z.name} className="flex items-center gap-2 text-[11px]">
-                        <span className="w-44 text-slate-400 shrink-0 truncate">{zoneNames?.get(z.name) ?? z.name}</span>
+                        <span className="w-44 text-slate-300 shrink-0 truncate">{shortZoneLabel(z, zoneNames)}</span>
                         <div className="flex-1 h-2 bg-satellite-border rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${Math.min(100, z.changePercent * 1.6)}%`, background: zoneColor(z.changePercent) }} />
                         </div>
