@@ -67,14 +67,38 @@ export default function LiveDisasterPage() {
     setGeneratingFor(alert.id);
     try {
       const source = SATELLITE_SOURCES[0];
+      const w = analysis.image_width ?? 1024;
+      const h = analysis.image_height ?? 1024;
+      const pct = analysis.affected_area_percent ?? 0;
+      // Reconstruct a minimal region with a worst zone from the alert message
+      // (e.g. "worst affected zone: South-Central (S), 61.8% changed")
+      const wzMatch = alert.message.match(/worst affected zone:\s*([^,]+),\s*([\d.]+)%/);
+      let worstZone: { name: string; changePercent: number; bbox: { x0: number; y0: number; x1: number; y1: number }; intensity: number; lowCoverage?: boolean } | null = null;
+      if (wzMatch) {
+        const zoneName = wzMatch[1].trim();
+        const zonePct = parseFloat(wzMatch[2]);
+        // Estimate zone bbox from % — a zone is 1/9 of frame (3x3 grid)
+        const zoneW = w / 3;
+        const zoneH = h / 3;
+        worstZone = {
+          name: zoneName,
+          changePercent: zonePct,
+          bbox: { x0: 0, y0: 0, x1: zoneW, y1: zoneH },
+          intensity: 120,
+          lowCoverage: false,
+        };
+      }
       const det = {
-        affectedAreaPercent: analysis.affected_area_percent ?? 0,
+        affectedAreaPercent: pct,
         severity: (analysis.change_severity ?? 'Low') as any,
-        changedPixels: Math.round((analysis.affected_area_percent ?? 0) * ((analysis.image_width ?? 1024) * (analysis.image_height ?? 1024)) / 100),
-        totalPixels: (analysis.image_width ?? 1024) * (analysis.image_height ?? 1024),
+        changedPixels: Math.round(pct * w * h / 100),
+        totalPixels: w * h,
+        region: worstZone
+          ? { worstZone, zones: [worstZone] }
+          : undefined,
         changeMapData: null,
-      };
-      const rep = await generateIncidentReport(det, {} as any, source.bbox, analysis.image_width ?? 1024, analysis.image_height ?? 1024);
+      } as any;
+      const rep = await generateIncidentReport(det, {} as any, source.bbox, w, h);
       setReports(prev => new Map(prev).set(alert.id, rep));
     } catch {
       setDismissError('Failed to generate report');
@@ -83,13 +107,29 @@ export default function LiveDisasterPage() {
     }
   };
 
-  const resolveLocation = async (analysis: AnalysisRecord) => {
+  const resolveLocation = async (alert: AlertRecord) => {
     const source = SATELLITE_SOURCES[0];
     const geo = parseBBox(source.bbox);
     if (!geo) return null;
-    const w = analysis.image_width ?? 1024;
-    const h = analysis.image_height ?? 1024;
-    const { lat, lon } = zoneCenterGeo(geo, { x0: Math.floor(w / 3), y0: 0, x1: Math.floor((2 * w) / 3), y1: Math.floor(h / 3) }, w, h);
+    const analysis = analyses.find(a => a.id === alert.analysis_id);
+    const w = analysis?.image_width ?? 1024;
+    const h = analysis?.image_height ?? 1024;
+    // Try to extract zone name from alert message, default to center of frame
+    const wzMatch = alert.message.match(/worst affected zone:\s*([^,]+),/);
+    let zoneBbox = { x0: Math.floor(w / 3), y0: 0, x1: Math.floor((2 * w) / 3), y1: Math.floor(h / 3) };
+    if (wzMatch) {
+      // Zone name like "South-Central (S)" — map grid position
+      const name = wzMatch[1].trim().toLowerCase();
+      const zoneW = w / 3;
+      const zoneH = h / 3;
+      let col = 1, row = 0;
+      if (name.includes('west') || name.includes('(w)')) col = 0;
+      else if (name.includes('east') || name.includes('(e)')) col = 2;
+      if (name.includes('south')) row = 1;
+      else if (name.includes('north')) row = 0;
+      zoneBbox = { x0: col * zoneW, y0: row * zoneH, x1: (col + 1) * zoneW, y1: (row + 1) * zoneH };
+    }
+    const { lat, lon } = zoneCenterGeo(geo, zoneBbox, w, h);
     return reverseGeocode(lat, lon);
   };
 

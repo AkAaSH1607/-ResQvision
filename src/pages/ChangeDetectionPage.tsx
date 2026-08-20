@@ -136,6 +136,12 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
       const pred = prediction;
       if (pred?.available && pred.predictedBbox) {
         const pb = pred.predictedBbox;
+        const wz = det.region?.worstZone;
+        // If predicted zone overlaps the worst zone (contained/no movement),
+        // offset the label so it doesn't overlap the red "MOST AFFECTED" label.
+        const overlapsWorst = wz &&
+          pb.x0 < wz.bbox.x1 && pb.x1 > wz.bbox.x0 &&
+          pb.y0 < wz.bbox.y1 && pb.y1 > wz.bbox.y0;
         ctx.setLineDash([6, 4]);
         ctx.strokeStyle = '#A855F7';
         ctx.lineWidth = 2;
@@ -146,7 +152,8 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.fillStyle = '#C084FC';
         ctx.font = 'bold 12px ui-monospace, monospace';
         const predLabel = pred.predictedZoneName ?? `${pred.direction} (${pred.predictedChangePercent.toFixed(1)}%)`;
-        ctx.fillText(`PREDICTED T3: ${predLabel} (${pred.direction})`, pb.x0 * scale + 6, pb.y0 * scale + 18);
+        const labelY = overlapsWorst ? pb.y1 * scale - 8 : pb.y0 * scale + 18;
+        ctx.fillText(`PREDICTED T3: ${predLabel}`, pb.x0 * scale + 6, labelY);
       }
     };
     img.src = fresh.dataUrl;
@@ -414,15 +421,15 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         </div>
         <div className="p-4">
           <div className="relative rounded-lg overflow-hidden bg-satellite-bg flex items-center justify-center" style={{ minHeight: 320 }}>
-            {processing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-satellite-bg/90 z-10">
-                <div className="w-6 h-6 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
             {!result && !processing && (
               <div className="text-center p-4">
                 <ArrowRight size={24} className="text-slate-600 mx-auto mb-2" />
                 <div className="text-xs text-slate-600">Fetching satellite frame and establishing baseline…</div>
+              </div>
+            )}
+            {processing && !result && (
+              <div className="absolute inset-0 flex items-center justify-center bg-satellite-bg/90 z-10">
+                <div className="w-6 h-6 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
               </div>
             )}
             <canvas
@@ -430,6 +437,11 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
               className="w-full h-full object-contain"
               style={{ imageRendering: 'auto', display: result ? 'block' : 'none' }}
             />
+            {result && processing && (
+              <div className="absolute bottom-2 right-2 bg-satellite-bg/80 text-[9px] text-slate-400 px-2 py-1 rounded">
+                Re-scanning…
+              </div>
+            )}
           </div>
         </div>
       </div>
