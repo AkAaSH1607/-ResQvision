@@ -1,5 +1,6 @@
 import { Cloud, Droplets, Thermometer, Leaf, Sun, CloudRain } from 'lucide-react';
 import type { SceneAnalysisResult } from '../lib/types';
+import { useLanguage } from '../lib/i18n';
 
 interface Props {
   result: SceneAnalysisResult | null;
@@ -35,15 +36,17 @@ function ndviColor(ndvi: number): string {
   return '#EF4444';
 }
 
-function ndviLabel(ndvi: number): string {
-  if (ndvi > 0.6) return 'Dense Vegetation';
-  if (ndvi > 0.3) return 'Moderate Vegetation';
-  if (ndvi > 0.1) return 'Sparse Vegetation';
-  if (ndvi > -0.1) return 'Bare Soil';
-  return 'Water / No Vegetation';
+function ndviLabel(ndvi: number, t: (k: string) => string): string {
+  if (ndvi > 0.6) return t('sa.denseVegetation');
+  if (ndvi > 0.3) return t('sa.moderateVegetation');
+  if (ndvi > 0.1) return t('sa.sparseVegetation');
+  if (ndvi > -0.1) return t('sa.bareSoil');
+  return t('sa.waterNoVegetation');
 }
 
 export default function SceneAnalysis({ result, loading }: Props) {
+  const { t } = useLanguage();
+
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -57,7 +60,7 @@ export default function SceneAnalysis({ result, loading }: Props) {
   if (!result) {
     return (
       <div className="text-center py-6 text-slate-600 text-sm">
-        Upload an image to analyze scene content
+        {t('sa.sceneEmpty')}
       </div>
     );
   }
@@ -68,9 +71,9 @@ export default function SceneAnalysis({ result, loading }: Props) {
       <div className="metric-card flex items-center gap-3">
         <WeatherIcon condition={result.weather} />
         <div className="flex-1">
-          <div className="text-xs text-slate-400">Weather Condition</div>
+          <div className="text-xs text-slate-400">{t('lm.weatherCond')}</div>
           <div className="text-sm text-white font-medium">{result.weather}</div>
-          <div className="text-[10px] text-slate-500">{result.cloudPercent.toFixed(1)}% cloud cover detected</div>
+          <div className="text-[10px] text-slate-500">{result.cloudPercent.toFixed(1)}% {t('sa.cloudDetected')}</div>
         </div>
       </div>
 
@@ -79,13 +82,13 @@ export default function SceneAnalysis({ result, loading }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Leaf size={13} className="text-green-400" />
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider">NDVI Index</span>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">{t('sa.ndviIndex')}</span>
           </div>
           <span className="text-sm font-mono" style={{ color: ndviColor(result.ndvi) }}>
             {result.ndvi > 0 ? '+' : ''}{result.ndvi.toFixed(3)}
           </span>
         </div>
-        <div className="text-[11px] text-slate-500 mt-0.5">{ndviLabel(result.ndvi)}</div>
+        <div className="text-[11px] text-slate-500 mt-0.5">{ndviLabel(result.ndvi, t)}</div>
         <div className="mt-2 relative h-1.5 bg-satellite-border rounded-full overflow-hidden">
           <div
             className="absolute h-full rounded-full transition-all duration-700"
@@ -108,12 +111,12 @@ export default function SceneAnalysis({ result, loading }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Droplets size={13} className="text-blue-400" />
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Water Bodies</span>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">{t('sa.waterBodies')}</span>
           </div>
           <span className="text-sm font-mono text-blue-400">{result.waterBodiesPercent.toFixed(1)}%</span>
         </div>
         <Bar value={result.waterBodiesPercent} color="linear-gradient(90deg, #1D4ED8, #3B82F6)" />
-        <div className="text-[10px] text-slate-500 mt-1">Rivers, lakes, coastal areas identified</div>
+        <div className="text-[10px] text-slate-500 mt-1">{t('sa.waterDesc')}</div>
       </div>
 
       {/* Urban Heat */}
@@ -121,12 +124,12 @@ export default function SceneAnalysis({ result, loading }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Thermometer size={13} className="text-orange-400" />
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Urban Heat Islands</span>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">{t('sa.urbanHeat')}</span>
           </div>
           <span className="text-sm font-mono text-orange-400">{result.urbanHeatPercent.toFixed(1)}%</span>
         </div>
         <Bar value={result.urbanHeatPercent} color="linear-gradient(90deg, #EA580C, #F97316)" />
-        <div className="text-[10px] text-slate-500 mt-1">Hotspot regions detected</div>
+        <div className="text-[10px] text-slate-500 mt-1">{t('sa.urbanHeatDesc')}</div>
       </div>
 
       {/* Vegetation */}
@@ -134,27 +137,27 @@ export default function SceneAnalysis({ result, loading }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Leaf size={13} className="text-green-400" />
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Vegetation Cover</span>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">{t('sa.vegetationCover')}</span>
           </div>
           <span className="text-sm font-mono text-green-400">{result.vegetationPercent.toFixed(1)}%</span>
         </div>
         <Bar value={result.vegetationPercent} color="linear-gradient(90deg, #065F46, #10B981)" />
-        <div className="text-[10px] text-slate-500 mt-1">Forest, crops, grasslands</div>
+        <div className="text-[10px] text-slate-500 mt-1">{t('sa.vegetationDesc')}</div>
       </div>
 
       {/* Legend */}
       <div className="mt-2 p-3 bg-satellite-bg/50 rounded-lg border border-satellite-border">
-        <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">Scene Legend</div>
+        <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">{t('sa.legend')}</div>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           {[
-            { color: '#3B82F6', label: 'Water' },
-            { color: '#10B981', label: 'Vegetation' },
-            { color: '#F97316', label: 'Urban/Hot' },
-            { color: '#94A3B8', label: 'Cloud' },
+            { color: '#3B82F6', label: 'sa.water' },
+            { color: '#10B981', label: 'sa.vegetation' },
+            { color: '#F97316', label: 'sa.urbanHot' },
+            { color: '#94A3B8', label: 'sa.cloud' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-sm" style={{ background: item.color }} />
-              <span className="text-[10px] text-slate-400">{item.label}</span>
+              <span className="text-[10px] text-slate-400">{t(item.label)}</span>
             </div>
           ))}
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Database, TrendingUp, CloudLightning, Thermometer, Activity } from 'lucide-react';
 import { fetchAnalyses, getAnalyticsSummary } from '../lib/supabase';
 import type { AnalysisRecord } from '../lib/types';
+import { useLanguage } from '../lib/i18n';
 
 function formatDate(str: string) {
   return new Date(str).toLocaleString('en-IN', {
@@ -32,6 +33,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 }
 
 export default function AnalyticsPage() {
+  const { t } = useLanguage();
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
   const [summary, setSummary] = useState({ totalAnalyses: 0, avgPsnr: 0, avgCloudCoverage: 0, highSeverityCount: 0 });
   const [loading, setLoading] = useState(true);
@@ -53,27 +55,27 @@ export default function AnalyticsPage() {
     <div className="space-y-5">
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Activity} label="Total Analyses" value={summary.totalAnalyses} color="#FF6B35" />
-        <StatCard icon={TrendingUp} label="Avg PSNR (dB)" value={summary.avgPsnr.toFixed(1)} color="#10B981" />
-        <StatCard icon={CloudLightning} label="Avg Cloud Cover" value={`${summary.avgCloudCoverage.toFixed(0)}%`} color="#3B82F6" />
-        <StatCard icon={Thermometer} label="High Severity Events" value={summary.highSeverityCount} color="#EF4444" />
+        <StatCard icon={Activity} label={t('an.totalAnalyses')} value={summary.totalAnalyses} color="#FF6B35" />
+        <StatCard icon={TrendingUp} label={t('an.avgPSNR')} value={summary.avgPsnr.toFixed(1)} color="#10B981" />
+        <StatCard icon={CloudLightning} label={t('an.avgCloud')} value={`${summary.avgCloudCoverage.toFixed(0)}%`} color="#3B82F6" />
+        <StatCard icon={Thermometer} label={t('an.highSeverity')} value={summary.highSeverityCount} color="#EF4444" />
       </div>
 
       {/* Filter */}
       <div className="flex items-center gap-2">
         <Database size={12} className="text-slate-500" />
-        <span className="text-xs text-slate-500">Filter:</span>
-        {['all', 'full', 'change_detection'].map(t => (
+        <span className="text-xs text-slate-500">{t('an.filter')}:</span>
+        {['all', 'full', 'change_detection'].map(k => (
           <button
-            key={t}
-            onClick={() => setFilter(t)}
+            key={k}
+            onClick={() => setFilter(k)}
             className={`px-3 py-1 rounded-lg text-xs transition-all ${
-              filter === t
+              filter === k
                 ? 'bg-accent-orange/15 text-accent-orange border border-accent-orange/25'
                 : 'text-slate-400 hover:text-slate-200 border border-satellite-border hover:border-slate-500'
             }`}
           >
-            {t === 'all' ? 'All' : t === 'full' ? 'Colorization' : 'Change Detection'}
+            {k === 'all' ? t('an.allTypes') : k === 'full' ? t('cp.colorizeNow') : t('cd.title')}
           </button>
         ))}
       </div>
@@ -84,15 +86,15 @@ export default function AnalyticsPage() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-satellite-border bg-satellite-bg/50">
-                <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">Timestamp</th>
+                <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">{t('an.date')}</th>
                 <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">Image</th>
-                <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">Type</th>
-                <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">Satellite</th>
-                <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">PSNR</th>
-                <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">SSIM</th>
+                <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">{t('an.type')}</th>
+                <th className="px-4 py-3 text-left text-[10px] text-slate-500 uppercase tracking-wider">{t('an.satellite')}</th>
+                <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">{t('an.psnr')}</th>
+                <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">{t('an.ssim')}</th>
                 <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">Cloud%</th>
                 <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">Weather</th>
-                <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">Severity</th>
+                <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">{t('an.severity')}</th>
                 <th className="px-4 py-3 text-right text-[10px] text-slate-500 uppercase tracking-wider">ms</th>
               </tr>
             </thead>
@@ -110,7 +112,7 @@ export default function AnalyticsPage() {
               {!loading && filtered.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-4 py-12 text-center text-slate-600">
-                    No analyses found. Process an image to see history.
+                    {t('an.noHistory')} — {t('an.noHistoryDesc')}
                   </td>
                 </tr>
               )}

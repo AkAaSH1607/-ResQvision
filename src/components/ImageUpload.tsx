@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, Image as ImageIcon, X, Info } from 'lucide-react';
+import { useLanguage } from '../lib/i18n';
 
 interface Props {
   onImageLoaded: (file: File) => void;
@@ -30,6 +31,7 @@ async function urlToFile(url: string, filename: string): Promise<File> {
 }
 
 export default function ImageUpload({ onImageLoaded, label = 'Upload IR Satellite Image', accept = 'image/*', currentFile }: Props) {
+  const { t } = useLanguage();
   const [dragging, setDragging] = useState(false);
   const [loadingSample, setLoadingSample] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -94,7 +96,7 @@ export default function ImageUpload({ onImageLoaded, label = 'Upload IR Satellit
               <div className="text-center">
                 <div className="text-sm text-slate-200 font-medium">{currentFile.name}</div>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  {(currentFile.size / 1024).toFixed(0)} KB — click to replace
+                  {(currentFile.size / 1024).toFixed(0)} KB — {t('cp.clickReplace')}
                 </div>
               </div>
             </>
@@ -116,7 +118,7 @@ export default function ImageUpload({ onImageLoaded, label = 'Upload IR Satellit
       <div>
         <div className="flex items-center gap-1.5 mb-2">
           <Info size={10} className="text-slate-500" />
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider">Or load a sample</span>
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider">{t('cp.sampleImages')}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {SAMPLE_URLS.map(s => (

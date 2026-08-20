@@ -201,11 +201,11 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
   }, []);
 
   function timeAgo(d: Date | null): string {
-    if (!d) return 'never';
+    if (!d) return t('lm.never');
     const mins = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} min ago`;
-    return `${(mins / 60).toFixed(1)} hr ago`;
+    if (mins < 1) return t('lm.justNow');
+    if (mins < 60) return t('lm.minAgo').replace('{n}', String(mins));
+    return t('lm.hrAgo').replace('{n}', (mins / 60).toFixed(1));
   }
 
   const weather = weatherIconAndLabel(liveWeather.code);
@@ -221,7 +221,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           </div>
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-satellite-muted/30 border border-satellite-border text-[10px] font-mono text-slate-300">
             <weather.Icon size={11} className="text-accent-blue" />
-            {liveWeather.tempC !== null ? `${Math.round(liveWeather.tempC)}°C · ${lang === 'ta' ? (TA_WEATHER[weather.label] ?? weather.label) : weather.label}` : 'Weather —'}
+            {liveWeather.tempC !== null ? `${Math.round(liveWeather.tempC)}°C · ${lang === 'ta' ? (TA_WEATHER[weather.label] ?? weather.label) : weather.label}` : t('lm.weatherLabel')}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
       </div>
       {fetchError && (
         <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex-shrink-0">
-          ⚠️ {fetchError} — the pipeline itself is real; MODIS/VIIRS passes over India roughly once a day, so a retry or waiting for the next daily pass usually resolves it.
+          ⚠️ {fetchError} {t('lm.pipelineRealNote')}
         </div>
       )}
 
@@ -250,7 +250,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Layers size={12} className="text-accent-orange" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('lm.liveIRSource')}</span>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('lm.liveIRSource')}</span>
             </div>
             <div className="space-y-1.5">
               {SATELLITE_SOURCES.map(source => (
@@ -301,7 +301,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
 
           {selectedSourceId !== 'none' && (
             <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-3">ResQvision Colorization</div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-3">{t('lm.resqvisionColorization')}</div>
               <ColormapSelector
                 selected={colormap}
                 onChange={setColormap}
@@ -312,7 +312,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           )}
 
           <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-3">Map Markers</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-3">{t('lm.mapMarkers')}</div>
             <div className="space-y-2">
               <button
                 onClick={() => setShowCities(v => !v)}
@@ -322,7 +322,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
               >
                 <div className="flex items-center gap-2">
                   <Building2 size={12} />
-                  City Markers (15 cities)
+                  {t('lm.cityMarkers')} ({t('lm.cityMarkersDesc')})
                 </div>
                 <div className={`w-2 h-2 rounded-full ${showCities ? 'bg-accent-orange' : 'bg-slate-600'}`} />
               </button>
@@ -335,7 +335,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
               >
                 <div className="flex items-center gap-2">
                   <Mountain size={12} />
-                  Landmarks & Geography
+                  {t('lm.landmarks')}
                 </div>
                 <div className={`w-2 h-2 rounded-full ${showLandmarks ? 'bg-cyan-400' : 'bg-slate-600'}`} />
               </button>
@@ -343,9 +343,9 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
               <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/5 text-xs text-red-400">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={12} />
-                  Alert Markers
+                  {t('lm.alertMarkers')}
                 </div>
-                <span className="font-mono">{alertMarkers.length} active</span>
+                <span className="font-mono">{alertMarkers.length} {t('lm.active')}</span>
               </div>
             </div>
           </div>
@@ -354,50 +354,48 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
             <div className="flex items-center gap-1.5 mb-2">
               <Layers size={11} className="text-accent-blue" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider">Automatic Disaster Scan</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('lm.autoDisasterScan')}</span>
             </div>
             {baselineStatus === 'building' && (
               <div className="text-[10px] text-slate-500 leading-relaxed">
-                🛰️ Building satellite baseline — every fetched frame is stored automatically. The first
-                frame-to-frame comparison will run on the next satellite pass.
+                🛰️ {t('lm.buildingBaseline')}
               </div>
             )}
             {baselineStatus === 'ready' && autoReport && (
               <div className="space-y-2">
                 <div className="text-[10px] font-mono text-slate-400">
-                  Baseline: {autoReport.baselineDate} → Current: {autoReport.currentDate}
+                  {t('lm.baseline')}: {autoReport.baselineDate} → {t('lm.current')}: {autoReport.currentDate}
                 </div>
                 {autoReport.result.region?.worstZone && !autoReport.result.region.worstZone.lowCoverage ? (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-500">Most affected zone</span>
+                      <span className="text-slate-500">{t('lm.mostAffectedZone')}</span>
                       <span className="font-mono text-red-400">{autoReport.result.region.worstZone.name}</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-500">Least affected zone</span>
+                      <span className="text-slate-500">{t('lm.leastAffectedZone')}</span>
                       <span className="font-mono text-green-400">
                         {autoReport.result.region.zones[autoReport.result.region.zones.length - 1]?.name ?? '—'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-slate-500">Overall change</span>
+                      <span className="text-slate-500">{t('lm.overallChange')}</span>
                       <span className="font-mono text-accent-orange">{autoReport.result.affectedAreaPercent.toFixed(1)}%</span>
                     </div>
                   </div>
                 ) : (
                   <div className="text-[10px] text-slate-500">
-                    ✅ No significant change detected vs baseline — all clear.
+                    ✅ {t('lm.allClearScan')}
                   </div>
                 )}
                 <div className="text-[9px] text-slate-600 border-t border-satellite-border pt-1.5">
-                  Region analysis excludes satellite swath gaps (no-data areas). Zones dominated by gaps are
-                  flagged as unreliable instead of scored.
+                  {t('lm.regionNote')}
                 </div>
               </div>
             )}
             {baselineStatus === 'none' && (
               <div className="text-[10px] text-slate-500 leading-relaxed">
-                Auto-scan pending first frame fetch…
+                {t('lm.autoScanPending')}
               </div>
             )}
           </div>
@@ -413,81 +411,81 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
           <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
             <div className="flex items-center gap-1.5 mb-2">
               <Layers size={11} className="text-accent-blue" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider">IR Overlay Colour Legend</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider">{t('lm.irOverlayLegend')}</span>
             </div>
             <div className="space-y-2">
               <div className="text-[10px] text-slate-400 leading-relaxed mb-1.5">
-                Raw frame colourised with <strong className="text-accent-orange">{colormap}</strong> by ResQvision's own pipeline:
+                {t('lm.rawFrameLegend').replace('{colormap}', colormap)}
               </div>
               {colormap === 'JET' && (
                 <div className="space-y-1 text-[10px] text-slate-400">
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-blue-600 border border-white/20 flex-shrink-0" /> Very cold ({'<'}210K) — thick clouds, storm tops</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-cyan-400 border border-white/20 flex-shrink-0" /> Cold (210–240K) — high cloud cover</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-green-400 border border-white/20 flex-shrink-0" /> Cool (240–270K) — cirrus, high terrain</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-yellow-400 border border-white/20 flex-shrink-0" /> Warm (270–300K) — land, low clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-orange-500 border border-white/20 flex-shrink-0" /> Hot (300–330K) — bare soil, urban areas</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-red-600 border border-white/20 flex-shrink-0" /> Very hot ({'>'}330K) — heat islands, fires</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-blue-600 border border-white/20 flex-shrink-0" /> {t('lm.veryCold')} ({'<'}210K) — {t('lm.legendThickClouds')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-cyan-400 border border-white/20 flex-shrink-0" /> {t('lm.cold2')} (210–240K) — {t('lm.legendHighCloud')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-green-400 border border-white/20 flex-shrink-0" /> {t('lm.cool2')} (240–270K) — {t('lm.legendCirrus')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-yellow-400 border border-white/20 flex-shrink-0" /> {t('lm.warm2')} (270–300K) — {t('lm.legendLand')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-orange-500 border border-white/20 flex-shrink-0" /> {t('lm.hot2')} (300–330K) — {t('lm.legendBareSoil')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-red-600 border border-white/20 flex-shrink-0" /> {t('lm.veryHot')} ({'>'}330K) — {t('lm.legendHeatIslands')}</div>
                 </div>
               )}
               {colormap === 'TURBO' && (
                 <div className="space-y-1 text-[10px] text-slate-400">
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-950 border border-white/20 flex-shrink-0" /> Very cold — storm tops, thick clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-700 border border-white/20 flex-shrink-0" /> Cold — high clouds, snow</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-blue-500 border border-white/20 flex-shrink-0" /> Cool — mid-level clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-teal-500 border border-white/20 flex-shrink-0" /> Mild — vegetation, ocean</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-amber-500 border border-white/20 flex-shrink-0" /> Warm — land, low cloud</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-red-600 border border-white/20 flex-shrink-0" /> Hot — urban heat, fires</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-950 border border-white/20 flex-shrink-0" /> {t('lm.veryCold')} — {t('lm.legendStormTops')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-700 border border-white/20 flex-shrink-0" /> {t('lm.cold2')} — {t('lm.legendSnow')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-blue-500 border border-white/20 flex-shrink-0" /> {t('lm.cool2')} — {t('lm.legendMidClouds')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-teal-500 border border-white/20 flex-shrink-0" /> {t('lm.warm2')} — {t('lm.legendOcean')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-amber-500 border border-white/20 flex-shrink-0" /> {t('lm.hot2')} — {t('lm.legendLand')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-red-600 border border-white/20 flex-shrink-0" /> {t('lm.veryHot')} — {t('lm.legendUrbanHeat')}</div>
                 </div>
               )}
               {colormap === 'INFERNO' && (
                 <div className="space-y-1 text-[10px] text-slate-400">
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-black border border-white/30 flex-shrink-0" /> Coldest — storm tops, thick clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-900 border border-white/20 flex-shrink-0" /> Very cold — high clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-orange-700 border border-white/20 flex-shrink-0" /> Cool — mid clouds, water</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-amber-400 border border-white/20 flex-shrink-0" /> Warm — land, vegetation</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-amber-100 border border-white/40 flex-shrink-0" /> Hot — bare soil, urban</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-white border border-white/60 flex-shrink-0" /> Hottest — heat islands, fires</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-black border border-white/30 flex-shrink-0" /> {t('lm.veryCold')} — {t('lm.legendStormTops')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-900 border border-white/20 flex-shrink-0" /> {t('lm.cold2')} — {t('lm.legendHighClouds')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-orange-700 border border-white/20 flex-shrink-0" /> {t('lm.cool2')} — {t('lm.legendMidWater')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-amber-400 border border-white/20 flex-shrink-0" /> {t('lm.warm2')} — {t('lm.legendVegetation')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-amber-100 border border-white/40 flex-shrink-0" /> {t('lm.hot2')} — {t('lm.legendBareSoil')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-white border border-white/60 flex-shrink-0" /> {t('lm.hottest')} — {t('lm.legendHeatIslands')}</div>
                 </div>
               )}
               {colormap === 'PLASMA' && (
                 <div className="space-y-1 text-[10px] text-slate-400">
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-indigo-950 border border-white/20 flex-shrink-0" /> Coldest — storm tops, thick clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-800 border border-white/20 flex-shrink-0" /> Very cold — high clouds</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-pink-500 border border-white/20 flex-shrink-0" /> Cool — mid clouds, water</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-orange-400 border border-white/20 flex-shrink-0" /> Warm — land, vegetation</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-yellow-300 border border-white/30 flex-shrink-0" /> Hot — urban areas</div>
-                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-white border border-white/60 flex-shrink-0" /> Hottest — heat islands, fires</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-indigo-950 border border-white/20 flex-shrink-0" /> {t('lm.veryCold')} — {t('lm.legendStormTops')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-purple-800 border border-white/20 flex-shrink-0" /> {t('lm.cold2')} — {t('lm.legendHighClouds')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-pink-500 border border-white/20 flex-shrink-0" /> {t('lm.cool2')} — {t('lm.legendMidWater')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-orange-400 border border-white/20 flex-shrink-0" /> {t('lm.warm2')} — {t('lm.legendVegetation')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-yellow-300 border border-white/30 flex-shrink-0" /> {t('lm.hot2')} — {t('lm.legendUrban')}</div>
+                  <div className="flex items-center gap-2"><div className="w-4 h-3 rounded-sm bg-white border border-white/60 flex-shrink-0" /> {t('lm.hottest')} — {t('lm.legendHeatIslands')}</div>
                 </div>
               )}
               <div className="text-[9px] text-slate-500 border-t border-satellite-border pt-1.5">
-                Note: false-color source frames — vegetation red, water dark blue, cloud white — before ResQvision remaps to thermal scale.
+                {t('lm.legendFalseColor')}
               </div>
             </div>
           </div>
           )}
 
           <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-3">Marker Legend</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-3">{t('lm.markerLegend')}</div>
             <div className="space-y-2 text-[10px] text-slate-400">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-accent-orange border border-white/60 flex-shrink-0" />
-                <span>National Capital</span>
+                <span>{t('lm.nationalCapital')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-white/60 flex-shrink-0" />
-                <span>Major Metro City</span>
+                <span>{t('lm.majorMetro')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-slate-400 border border-white/40 flex-shrink-0" />
-                <span>City</span>
+                <span>{t('lm.city')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3.5 h-3.5 rounded-full bg-red-500 border border-white/60 flex-shrink-0" style={{ boxShadow: '0 0 6px #EF4444' }} />
-                <span>Disaster Alert</span>
+                <span>{t('lm.disasterAlert')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span>🏔️ 🌊 🌿 🏜️</span>
-                <span>Geographic Feature</span>
+                <span>{t('lm.geographicFeature')}</span>
               </div>
             </div>
           </div>
@@ -496,10 +494,10 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
             <div className="flex items-start gap-2">
               <Info size={11} className="text-slate-500 flex-shrink-0 mt-0.5" />
               <div className="text-[10px] text-slate-500 leading-relaxed space-y-1.5">
-                <p>The colored overlay is a <strong className="text-slate-400">live IR frame run through ResQvision's own colormap engine</strong> — the same pipeline used on the Colorize page — not NASA's pre-rendered image.</p>
-                <p>You may see a thin diagonal gap in the overlay — that's a real <strong className="text-slate-400">satellite orbit swath gap</strong> (no data captured there that day), shown as transparent rather than colorized, so it isn't mistaken for a real feature.</p>
-                <p>MODIS/VIIRS are polar-orbiting satellites with roughly one pass over India per day. Auto-refresh checks every 30 min for a new pass; it won't produce a different image more than about once daily until direct INSAT (geostationary) ingestion is connected.</p>
-                <p>Switch base map to <strong className="text-slate-400">Street Map (OSM)</strong> via the layers control (top-right) for road names at high zoom.</p>
+                <p>{t('lm.infoOverlay')}</p>
+                <p>{t('lm.infoSwathGap')}</p>
+                <p>{t('lm.infoModis')}</p>
+                <p>{t('lm.infoStreetMap')}</p>
               </div>
             </div>
           </div>
@@ -511,7 +509,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
             >
               <div className="flex items-center gap-2">
                 <Eye size={11} className="text-slate-400" />
-                <span className="text-[10px] text-slate-300 uppercase tracking-wider">Session History</span>
+                <span className="text-[10px] text-slate-300 uppercase tracking-wider">{t('lm.sessionHistory')}</span>
               </div>
               {showHistory ? <ChevronUp size={11} className="text-slate-400" /> : <ChevronDown size={11} className="text-slate-400" />}
             </button>
@@ -519,7 +517,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
             {showHistory && (
               <div className="border-t border-satellite-border">
                 {feedHistory.length === 0 ? (
-                  <div className="text-center py-4 text-[10px] text-slate-600">No history yet</div>
+                  <div className="text-center py-4 text-[10px] text-slate-600">{t('lm.noHistoryYet')}</div>
                 ) : (
                   <div className="divide-y divide-satellite-border/40">
                     {feedHistory.map(row => (
@@ -554,7 +552,7 @@ export default function LiveMonitorPage({ onAlertsChanged }: { onAlertsChanged: 
             className="absolute top-3 z-[1001] bg-satellite-card/90 backdrop-blur-sm border border-satellite-border text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all shadow-md"
             style={{ left: showPanel ? '-1px' : '12px' }}
           >
-            {showPanel ? '← Hide' : '→ Controls'}
+            {showPanel ? t('lm.hide') : t('lm.controls')}
           </button>
 
           <SatelliteMap

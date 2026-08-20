@@ -3,6 +3,7 @@ import { Calendar, ArrowRight, Landmark, X, Layers, Database } from 'lucide-reac
 import type { ColormapName } from '../lib/types';
 import { applyColormapToImageData } from '../lib/colormaps';
 import { loadImageToCanvas } from '../lib/change-detection';
+import { useLanguage } from '../lib/i18n';
 
 interface Props {
   colormap: ColormapName;
@@ -71,6 +72,7 @@ const COLORMAP_MEANING = {
 } as const;
 
 export default function TemporalComparison({ colormap, intensity, currentDataUrl }: Props) {
+  const { t } = useLanguage();
   const [historicalDate, setHistoricalDate] = useState<string>('');
   const [historicalData, setHistoricalData] = useState<HistoricalImageData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -168,11 +170,11 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
       <div className="px-4 py-3 border-b border-satellite-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar size={14} className="text-accent-orange" />
-          <span className="text-xs text-slate-300 uppercase tracking-wider">Temporal Comparison</span>
+          <span className="text-xs text-slate-300 uppercase tracking-wider">{t('cp.temporalComparison')}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-accent-blue/10 border border-accent-blue/20 text-[9px] text-accent-blue font-mono">
           <Landmark size={9} />
-          Compare current image with any past date
+          {t('cp.selectDate')}
         </div>
       </div>
 
@@ -182,7 +184,7 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
           {/* Historical date — picking one auto-loads the archive image */}
           <div className="flex-1 flex items-center gap-2 bg-satellite-bg/60 rounded-lg px-3 py-2 border border-satellite-border">
             <Calendar size={12} className="text-blue-400 flex-shrink-0" />
-            <label className="text-[11px] text-slate-400 whitespace-nowrap">Historical Date:</label>
+            <label className="text-[11px] text-slate-400 whitespace-nowrap">{t('cp.selectDate')}:</label>
             <input
               type="date"
               value={historicalDate}
@@ -214,14 +216,14 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
                 onClick={() => document.getElementById('historical-upload')?.click()}
                 className="w-full px-3 py-2 rounded-lg border border-dashed border-blue-500/40 text-xs text-blue-300 hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2"
               >
-                📄 Archive image loaded — click to replace
+                📄 {t('cp.tcArchiveLoaded')}
               </button>
             ) : (
               <button
                 onClick={() => document.getElementById('historical-upload')?.click()}
                 className="w-full px-3 py-2 rounded-lg border border-dashed border-satellite-border text-xs text-slate-400 hover:border-accent-orange/50 hover:text-accent-orange transition-colors"
               >
-                Or upload your own archive image
+                {t('cp.tcUploadOwn')}
               </button>
             )}
           </div>
@@ -230,14 +232,14 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
         {/* Archive loading status */}
         {historicalDate && !historicalData && !loading && fetchError && (
           <div className="text-center py-3 text-[11px] text-amber-400 border border-dashed border-amber-500/40 rounded-lg">
-            ⚠ Pick a date earlier than today ({formatDate(new Date().toISOString().slice(0, 10))}) to load the archive image.
+            ⚠ {t('cp.tcPickEarlier')}
           </div>
         )}
 
         {historicalDate && !historicalData && loading && (
           <div className="flex items-center justify-center gap-2 py-3">
             <div className="w-4 h-4 border-2 border-accent-orange border-t-transparent rounded-full animate-spin" />
-            <span className="text-[11px] text-slate-400">Loading archive image for {formatDate(historicalDate)}…</span>
+            <span className="text-[11px] text-slate-400">{t('cp.tcLoading')} {formatDate(historicalDate)}…</span>
           </div>
         )}
 
@@ -246,22 +248,22 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase">
               <span className="px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-300">
-                {formatDate(historicalDate) || 'Historical'}
+                {formatDate(historicalDate) || t('cp.tcHistorical')}
               </span>
               <ArrowRight size={12} className="text-accent-orange" />
-              <span className="px-2 py-0.5 rounded bg-green-500/15 border border-green-500/30 text-green-300">Today</span>
+              <span className="px-2 py-0.5 rounded bg-green-500/15 border border-green-500/30 text-green-300">{t('cp.tcToday')}</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Historical image */}
               <div className="relative rounded-lg overflow-hidden border border-satellite-border bg-satellite-bg">
                 <div className="absolute top-2 left-2 px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded text-[10px] text-blue-300 font-mono z-10">
-                  {formatDate(historicalDate) || 'Historical'}
+                  {formatDate(historicalDate) || t('cp.tcHistorical')}
                 </div>
                 {loadedFrom && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-satellite-bg/80 border border-satellite-border rounded text-[10px] text-slate-400 font-mono z-10">
                     <Database size={9} className="text-blue-400" />
-                    Archive
+                    {t('cp.tcArchive')}
                   </div>
                 )}
                 <canvas
@@ -274,7 +276,7 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
               {/* Current image */}
               <div className="relative rounded-lg overflow-hidden border border-satellite-border bg-satellite-bg">
                 <div className="absolute top-2 left-2 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded text-[10px] text-green-300 font-mono z-10">
-                  Current — Today
+                  {t('cp.tcCurrentToday')}
                 </div>
                 {currentDataUrl && (
                   <img
@@ -285,7 +287,7 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
                 )}
                 {!currentDataUrl && (
                   <div className="w-full min-h-[200px] flex items-center justify-center text-[10px] text-slate-600">
-                    Upload first
+                    {t('cp.tcUploadFirst')}
                   </div>
                 )}
               </div>
@@ -293,9 +295,9 @@ export default function TemporalComparison({ colormap, intensity, currentDataUrl
 
             {/* What changed summary */}
             <div className="text-[10px] text-slate-500 font-mono border-t border-satellite-border pt-2 flex flex-wrap gap-x-6 gap-y-1">
-              <span>LEFT: <span className="text-blue-300">{formatDate(historicalDate) || 'Historical image'} (archive)</span></span>
-              <span>RIGHT: <span className="text-green-300">Current colorized output</span></span>
-              <span>Both run through the same {colormap} colormap for fair comparison</span>
+              <span>{t('cp.tcLeft')}: <span className="text-blue-300">{formatDate(historicalDate) || t('cp.tcArchiveImg')} ({t('cp.tcArchive').toLowerCase()})</span></span>
+              <span>{t('cp.tcRight')}: <span className="text-green-300">{t('cp.tcCurrentOutput')}</span></span>
+              <span>{t('cp.tcSameColormap').replace('colormap', colormap)}</span>
             </div>
           </div>
         )}

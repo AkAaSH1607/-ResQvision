@@ -1,4 +1,5 @@
 import { TrendingUp, Eye, BarChart3, Cloud } from 'lucide-react';
+import { useLanguage } from '../lib/i18n';
 import type { QualityMetrics } from '../lib/types';
 
 interface Props {
@@ -68,10 +69,12 @@ export default function QualityMetrics({ metrics, loading }: Props) {
     );
   }
 
+  const { t } = useLanguage();
+
   if (!metrics) {
     return (
       <div className="text-center py-6 text-slate-600 text-sm">
-        Upload an image to compute quality metrics
+        {t('cp.metricsEmpty')}
       </div>
     );
   }
@@ -83,35 +86,35 @@ export default function QualityMetrics({ metrics, loading }: Props) {
     <div className="space-y-2">
       <MetricItem
         icon={TrendingUp}
-        label="PSNR"
+        label={t('cp.psnr')}
         value={metrics.psnr.toFixed(2)}
         unit="dB"
-        description="Peak Signal-to-Noise Ratio — higher is better"
+        description={t('cp.psnrDesc')}
         color={psnrQuality}
         progress={(metrics.psnr / 50) * 100}
       />
       <MetricItem
         icon={Eye}
-        label="SSIM"
+        label={t('cp.ssim')}
         value={metrics.ssim.toFixed(4)}
-        description="Structural Similarity Index — max 1.0"
+        description={t('cp.ssimDesc')}
         color={ssimQuality}
         progress={metrics.ssim * 100}
       />
       <MetricItem
         icon={BarChart3}
-        label="FID Score"
+        label={t('cp.fid')}
         value={metrics.fid.toFixed(2)}
-        description="Fréchet Inception Distance — lower is better"
+        description={t('cp.fidDesc')}
         color="text-blue-400"
         progress={Math.max(0, 100 - metrics.fid * 5)}
       />
       <MetricItem
         icon={Cloud}
-        label="Cloud Cover"
+        label={t('cp.cloudCover')}
         value={metrics.cloudCoverage.toFixed(1)}
         unit="%"
-        description="Estimated cloud coverage percentage"
+        description={t('cp.cloudCoverDesc')}
         color={metrics.cloudCoverage > 60 ? 'text-yellow-400' : 'text-slate-300'}
         progress={metrics.cloudCoverage}
       />

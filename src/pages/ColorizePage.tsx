@@ -10,6 +10,7 @@ import { applyColormapToImageData, extractGrayscale } from '../lib/colormaps';
 import { computeAllMetrics } from '../lib/metrics';
 import { analyzeScene } from '../lib/scene-analysis';
 import { analyzeSceneML, getModelStatus, preloadModel } from '../lib/scene-analysis-ml';
+import { useLanguage } from '../lib/i18n';
 import { saveAnalysis, saveAlerts } from '../lib/supabase';
 import type { ColormapName, SatelliteType, QualityMetrics, SceneAnalysisResult } from '../lib/types';
 import { loadImageToCanvas } from '../lib/change-detection';
@@ -34,6 +35,7 @@ function generateAlerts(metrics: QualityMetrics, scene: SceneAnalysisResult): Al
 }
 
 export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () => void }) {
+  const { t } = useLanguage();
   const [file, setFile] = useState<File | null>(null);
   const [colormap, setColormap] = useState<ColormapName>('JET');
   const [intensity, setIntensity] = useState(1.0);
@@ -186,7 +188,7 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
       {/* Left Panel */}
       <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
         <div className="bg-satellite-card border border-satellite-border rounded-xl p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wider mb-3">Data Input</div>
+          <div className="text-xs text-slate-400 uppercase tracking-wider mb-3">{t('cp.dataInput')}</div>
           <ImageUpload onImageLoaded={handleFileLoaded} currentFile={file} />
         </div>
 
@@ -211,7 +213,7 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${processing ? 'bg-accent-orange animate-pulse' : processed ? 'bg-green-400' : 'bg-slate-600'}`} />
               <span className="text-xs text-slate-300 font-mono">
-                {processing ? 'Processing...' : processed ? 'Colorized Output' : 'Awaiting input'}
+                {processing ? t('cp.processingStatus') : processed ? t('cp.colorizedOutput') : t('cp.awaitingInput')}
               </span>
               {processed && file && (
                 <span className="text-[10px] text-slate-500">{file.name}</span>
@@ -221,17 +223,17 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
               {modelReady && (
                 <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-[10px] text-purple-400 font-mono">
                   <Brain size={10} />
-                  AI Model Active
+                  {t('cp.aiModelActive')}
                 </div>
               )}
               {processed && (
                 <>
-                  <button onClick={handleReprocess} className="p-1.5 rounded-lg hover:bg-satellite-muted/50 transition-colors" title="Re-process">
+                  <button onClick={handleReprocess} className="p-1.5 rounded-lg hover:bg-satellite-muted/50 transition-colors" title={t('cp.reProcess')}>
                     <RefreshCw size={14} className="text-slate-400" />
                   </button>
                   <button onClick={downloadResult} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/15 text-accent-orange text-xs border border-accent-orange/25 hover:bg-accent-orange/25 transition-all">
                     <Download size={12} />
-                    Export
+                    {t('cp.export')}
                   </button>
                 </>
               )}
@@ -242,12 +244,12 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
             {processing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-satellite-bg/80 z-10">
                 <div className="w-8 h-8 border-2 border-accent-orange border-t-transparent rounded-full animate-spin mb-3" />
-                <div className="text-sm text-accent-orange font-mono">Applying colormap...</div>
-                <div className="text-xs text-slate-500 mt-1">Computing metrics & scene analysis</div>
+                <div className="text-sm text-accent-orange font-mono">{t('cp.processing')}</div>
+                <div className="text-xs text-slate-500 mt-1">{t('cp.qualityMetrics')} & {t('cp.sceneAnalysis')}</div>
                 {modelReady && mlLoading && (
                   <div className="flex items-center gap-1.5 mt-2 text-[10px] text-purple-400 font-mono">
                     <Brain size={12} />
-                    Running neural network inference...
+                    {t('cp.processing')}
                   </div>
                 )}
               </div>
@@ -258,7 +260,7 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-satellite-card border border-satellite-border flex items-center justify-center mb-4">
                   <Zap size={24} className="text-slate-600" />
                 </div>
-                <div className="text-slate-500 text-sm">Upload an IR satellite image to begin colorization</div>
+                <div className="text-slate-500 text-sm">{t('cp.uploadSample')}</div>
                 <div className="text-slate-600 text-xs mt-1">Supports INSAT, Landsat, Sentinel, Cartosat data</div>
               </div>
             )}
@@ -294,7 +296,7 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
             className="w-full flex items-center justify-between px-4 py-3 border-b border-satellite-border hover:bg-satellite-muted/20 transition-colors"
             onClick={() => setShowMetrics(v => !v)}
           >
-            <span className="text-xs text-slate-300 uppercase tracking-wider">Quality Metrics</span>
+            <span className="text-xs text-slate-300 uppercase tracking-wider">{t('cp.qualityMetrics')}</span>
             {showMetrics ? <ChevronUp size={12} className="text-slate-400" /> : <ChevronDown size={12} className="text-slate-400" />}
           </button>
           {showMetrics && (
@@ -310,7 +312,7 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
             onClick={() => setShowScene(v => !v)}
           >
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-300 uppercase tracking-wider">Scene Analysis</span>
+              <span className="text-xs text-slate-300 uppercase tracking-wider">{t('cp.sceneAnalysis')}</span>
               {modelReady && <Brain size={12} className="text-purple-400" />}
             </div>
             {showScene ? <ChevronUp size={12} className="text-slate-400" /> : <ChevronDown size={12} className="text-slate-400" />}
@@ -320,7 +322,7 @@ export default function ColorizePage({ onAlertsChanged }: { onAlertsChanged: () 
               <SceneAnalysisPanel result={scene} loading={processing} />
               {modelReady && scene && 'confidence' in scene && (
                 <div className="mt-2 px-2 py-1 bg-purple-500/5 border border-purple-500/20 rounded text-[10px] text-purple-300 font-mono">
-                  ML Confidence: {((scene as any).confidence * 100).toFixed(0)}%
+                  {t('lm.mlAnalysis')} {t('lm.confidence')}: {((scene as any).confidence * 100).toFixed(0)}%
                 </div>
               )}
             </div>
