@@ -1,4 +1,4 @@
-import { Satellite, Activity, Bell, Database, Radio } from 'lucide-react';
+import { Satellite, Activity, Bell, Database, Radio, Siren } from 'lucide-react';
 
 interface HeaderProps {
   activePage: string;
@@ -11,6 +11,7 @@ const tabs = [
   { id: 'live', label: 'Live Monitor', icon: Radio, highlight: true },
   { id: 'colorize', label: 'IR Colorize', icon: Activity },
   { id: 'change', label: 'Change Detection', icon: Activity },
+  { id: 'disaster', label: 'Live Disaster', icon: Siren, alert: true },
   { id: 'history', label: 'Analytics', icon: Database },
 ];
 
@@ -45,6 +46,12 @@ export default function Header({ activePage, onNavigate, alertCount }: HeaderPro
               }`}
             >
               {tab.highlight && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
+              {tab.alert && alertCount > 0 && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                </span>
+              )}
               {tab.label}
             </button>
           ))}
@@ -57,15 +64,23 @@ export default function Header({ activePage, onNavigate, alertCount }: HeaderPro
             <span className="text-[11px] text-slate-400 font-mono">LIVE</span>
           </div>
           <button
-            onClick={() => onNavigate('alerts')}
+            onClick={() => onNavigate('disaster')}
             className="relative p-2 rounded-lg hover:bg-satellite-muted/50 transition-colors"
+            title="Live Disaster Intelligence"
           >
-            <Bell size={16} className={alertCount > 0 ? 'text-accent-orange' : 'text-slate-400'} />
+            <Siren size={16} className={alertCount > 0 ? 'text-red-400' : 'text-slate-400'} />
             {alertCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-accent-orange text-[9px] font-bold text-white flex items-center justify-center">
+              <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center">
                 {alertCount > 9 ? '9+' : alertCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => onNavigate('alerts')}
+            className="relative p-2 rounded-lg hover:bg-satellite-muted/50 transition-colors"
+            title="Alert Notifications"
+          >
+            <Bell size={16} className={alertCount > 0 ? 'text-accent-orange' : 'text-slate-400'} />
           </button>
         </div>
       </div>

@@ -7,9 +7,10 @@ import ChangeDetectionPage from './pages/ChangeDetectionPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AlertsPage from './pages/AlertsPage';
 import LiveMonitorPage from './pages/LiveMonitorPage';
+import LiveDisasterPage from './pages/LiveDisasterPage';
 import { fetchAlerts, unsubscribeFromAlerts } from './lib/supabase';
 
-type Page = 'dashboard' | 'live' | 'colorize' | 'change' | 'history' | 'alerts';
+type Page = 'dashboard' | 'live' | 'colorize' | 'change' | 'disaster' | 'history' | 'alerts';
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
@@ -73,6 +74,7 @@ export default function App() {
           {page === 'live' && <LiveMonitorPage onAlertsChanged={refreshAlertCount} />}
           {page === 'colorize' && <ColorizePage onAlertsChanged={refreshAlertCount} />}
           {page === 'change' && <ChangeDetectionPage onAlertsChanged={refreshAlertCount} />}
+          {page === 'disaster' && <LiveDisasterPage />}
           {page === 'history' && <AnalyticsPage />}
           {page === 'alerts' && <AlertsPage onAlertsChanged={refreshAlertCount} />}
         </div>

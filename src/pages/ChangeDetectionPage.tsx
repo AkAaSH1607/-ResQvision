@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { AlertTriangle, Download, ArrowRight, MapPin, Satellite, Radio } from 'lucide-react';
+import { AlertTriangle, Download, ArrowRight, MapPin, Satellite, Radio, FileText } from 'lucide-react';
 import { detectChanges } from '../lib/change-detection';
 import type { AutoChangeReport, ChangeDetectionResult } from '../lib/types';
 import { saveAnalysis, saveAlerts } from '../lib/supabase';
@@ -11,6 +11,8 @@ import {
 import { fetchAndColorizeLiveFrame, type ColorizedFrame } from '../lib/live-colorize';
 import { SATELLITE_SOURCES } from '../lib/live-feed';
 import type { ColormapName } from '../lib/types';
+import { generateIncidentReport, type IncidentReport } from '../lib/incident-report';
+import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
 
 const SEVERITY_COLORS: Record<string, string> = {
   None: '#10B981',
@@ -39,6 +41,27 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   const changeCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Local area names resolved via reverse-geocoding (OpenStreetMap Nominatim — free)
+  const [zoneNames, setZoneNames] = useState<Map<string, string> | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [incidentReport, setIncidentReport] = useState<IncidentReport | null>(null);
+
+  // Resolve human-readable local names for every zone (cached in localStorage
+  // so only the first lookup per scan triggers a network call)
+  const resolveZoneNames = useCallback(async (det: ChangeDetectionResult, fresh: ColorizedFrame) => {
+    if (!det.region || det.region.zones.length === 0) return;
+    const source = SATELLITE_SOURCES[0];
+    const geo = parseBBox(source.bbox);
+    if (!geo) return;
+    const map = new Map<string, string>();
+    for (const z of det.region.zones) {
+      const { lat, lon } = zoneCenterGeo(geo, z.bbox, fresh.width, fresh.height);
+      const local = await reverseGeocode(lat, lon);
+      map.set(z.name, local ? `${local} (${z.name})` : z.name);
+    }
+    setZoneNames(map);
+  }, []);
+
   // Render the change map (red = most affected, green-tinted least affected zone overlay)
   const renderChangeMap = useCallback((det: ChangeDetectionResult, fresh: ColorizedFrame) => {
     const canvas = changeCanvasRef.current;
@@ -66,7 +89,8 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.strokeRect(wz.bbox.x0 * scale, wz.bbox.y0 * scale, (wz.bbox.x1 - wz.bbox.x0) * scale, (wz.bbox.y1 - wz.bbox.y0) * scale);
         ctx.fillStyle = '#EF4444';
         ctx.font = 'bold 12px ui-monospace, monospace';
-        ctx.fillText(`MOST AFFECTED: ${wz.name} (${wz.changePercent}% changed)`, wz.bbox.x0 * scale + 6, wz.bbox.y0 * scale + 18);
+        const wzLabel = zoneNames?.get(wz.name) ?? wz.name;
+        ctx.fillText(`MOST AFFECTED: ${wzLabel} (${wz.changePercent}% changed)`, wz.bbox.x0 * scale + 6, wz.bbox.y0 * scale + 18);
       }
 
       // Overlay: least-affected zone = green translucent box with label
@@ -79,7 +103,8 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.strokeRect(least.bbox.x0 * scale, least.bbox.y0 * scale, (least.bbox.x1 - least.bbox.x0) * scale, (least.bbox.y1 - least.bbox.y0) * scale);
         ctx.fillStyle = '#10B981';
         ctx.font = 'bold 12px ui-monospace, monospace';
-        ctx.fillText(`LEAST AFFECTED: ${least.name} (${least.changePercent}% changed)`, least.bbox.x0 * scale + 6, least.bbox.y1 * scale - 8);
+        const leastLabel = zoneNames?.get(least.name) ?? least.name;
+        ctx.fillText(`LEAST AFFECTED: ${leastLabel} (${least.changePercent}% changed)`, least.bbox.x0 * scale + 6, least.bbox.y1 * scale - 8);
       }
     };
     img.src = fresh.dataUrl;
@@ -118,6 +143,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         setReport(autoReport);
         setPhase('ready');
         renderChangeMap(det, frame);
+        resolveZoneNames(det, frame);
 
         // Persist analysis record + alerts with the exact affected region
         const record = await saveAnalysis({
@@ -161,6 +187,65 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [runAutoScan]);
+
+  const buildIncidentReport = async () => {
+    if (!report || !latestFrame) return;
+    setGeneratingReport(true);
+    try {
+      const rep = await generateIncidentReport(
+        report.result,
+        report,
+        SATELLITE_SOURCES[0].bbox,
+        latestFrame.width,
+        latestFrame.height
+      );
+      setIncidentReport(rep);
+    } catch {
+      setErrorMessage('Failed to generate incident report');
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
+  const downloadIncidentReport = () => {
+    if (!incidentReport) return;
+    const rep = incidentReport;
+    const lines = [
+      '══════════════════════════════════════════════════════',
+      '           RESQVISION — INCIDENT REPORT',
+      '══════════════════════════════════════════════════════',
+      '',
+      `Detected       : ${rep.detected}`,
+      `Disaster Type  : ${rep.disaster}`,
+      `Location       : ${rep.location}`,
+      `Severity       : ${rep.severity.toUpperCase()}`,
+      `Confidence     : ${rep.confidence}`,
+      '',
+      '─ IMPACT ESTIMATE ──────────────────────────────────',
+      `Affected Area  : ${rep.affectedAreaKm2.toLocaleString()} km²`,
+      `Population     : ~${rep.populationExposed.toLocaleString()} people exposed`,
+      `Critical Infra : ~${rep.criticalInfrastructure} facilities at risk`,
+      '',
+      '─ EVOLUTION ────────────────────────────────────────',
+      `Expansion      : ${rep.expansion}`,
+      `Priority       : ${rep.recommendedPriority}`,
+      '',
+      '─ DETECTION METADATA ───────────────────────────────',
+      `Method         : Client-side change detection (3×3 zone grid)`,
+      `Baseline       : ${report?.baselineDate ?? '—'}`,
+      `Compared With  : ${report?.currentDate ?? '—'}`,
+      `Changed Pixels : ${report?.result.changedPixels.toLocaleString() ?? '—'}`,
+      '',
+      'Generated by ResQvision — zero-cost, client-side AI',
+      'For official verification, cross-check with local disaster',
+      'management authorities before dispatch.',
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.download = `incident_report_${rep.location.replace(/[^a-z0-9]+/gi, '_')}_${Date.now()}.txt`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+  };
 
   const downloadChangeMap = () => {
     if (!changeCanvasRef.current) return;
@@ -316,7 +401,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                     <MapPin size={13} className="text-red-400" />
                     <span className="text-[10px] text-slate-400 uppercase tracking-wider">Most Affected Region</span>
                   </div>
-                  <div className="text-sm font-semibold text-slate-100">{result.region.worstZone.name}</div>
+                  <div className="text-sm font-semibold text-slate-100">{zoneNames?.get(result.region.worstZone.name) ?? result.region.worstZone.name}</div>
                   <div className="text-[10px] font-mono text-slate-500 mt-0.5">
                     Bounding box: ({result.region.worstZone.bbox.x0}, {result.region.worstZone.bbox.y0}) → ({result.region.worstZone.bbox.x1}, {result.region.worstZone.bbox.y1}) px
                   </div>
@@ -348,7 +433,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                   <div className="space-y-1.5">
                     {result.region.zones.slice(0, 6).map((z: { name: string; changePercent: number; lowCoverage?: boolean }) => (
                       <div key={z.name} className="flex items-center gap-2 text-[11px]">
-                        <span className="w-24 text-slate-400 shrink-0">{z.name}</span>
+                        <span className="w-44 text-slate-400 shrink-0 truncate">{zoneNames?.get(z.name) ?? z.name}</span>
                         <div className="flex-1 h-2 bg-satellite-border rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${Math.min(100, z.changePercent * 1.6)}%`, background: zoneColor(z.changePercent) }} />
                         </div>
@@ -361,6 +446,40 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
                   </div>
                 </div>
               )}
+
+              {/* Generate Incident Report */}
+              <div className="pt-3 border-t border-satellite-border space-y-3">
+                <button
+                  onClick={buildIncidentReport}
+                  disabled={!result || generatingReport}
+                  className="w-full py-2.5 rounded-lg bg-red-600/80 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-red-600/80 transition-all flex items-center justify-center gap-2"
+                >
+                  <FileText size={14} />
+                  {generatingReport ? 'Generating…' : 'Generate Incident Report'}
+                </button>
+
+                {incidentReport && (
+                  <div className="bg-satellite-bg rounded-lg border border-red-500/30 p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-red-400 uppercase tracking-wider">Incident Report</span>
+                      <button onClick={downloadIncidentReport} className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1">
+                        <Download size={10} /> Download
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                      <div><span className="text-slate-500">Disaster</span><div className="text-slate-200">{incidentReport.disaster}</div></div>
+                      <div><span className="text-slate-500">Location</span><div className="text-slate-200">{incidentReport.location}</div></div>
+                      <div><span className="text-slate-500">Affected Area</span><div className="text-slate-200">{incidentReport.affectedAreaKm2.toLocaleString()} km²</div></div>
+                      <div><span className="text-slate-500">Population</span><div className="text-slate-200">~{incidentReport.populationExposed.toLocaleString()} exposed</div></div>
+                      <div><span className="text-slate-500">Expansion</span><div className="text-slate-200">{incidentReport.expansion}</div></div>
+                      <div><span className="text-slate-500">Priority</span><div className="text-slate-200">{incidentReport.recommendedPriority}</div></div>
+                    </div>
+                    <div className="text-[9px] text-slate-600 border-t border-satellite-border pt-1.5">
+                      Estimates use MODIS 4km pixel resolution × census-scale density (~400 people/km²). Verify with local disaster management authorities before dispatch.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="text-center py-10">
