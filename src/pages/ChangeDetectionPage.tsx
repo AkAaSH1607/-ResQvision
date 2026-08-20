@@ -139,10 +139,15 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.strokeStyle = '#EF4444';
         ctx.lineWidth = 2;
         ctx.strokeRect(wz.bbox.x0 * scale, wz.bbox.y0 * scale, (wz.bbox.x1 - wz.bbox.x0) * scale, (wz.bbox.y1 - wz.bbox.y0) * scale);
-        ctx.fillStyle = '#EF4444';
         ctx.font = 'bold 13px ui-monospace, monospace';
         const wzLabel = namesRef.current.get(wz.name) ?? wz.name;
-        ctx.fillText(`MOST AFFECTED: ${wzLabel} (${wz.changePercent}% changed)`, wz.bbox.x0 * scale + 6, wz.bbox.y0 * scale + 18);
+        const wzText = `MOST AFFECTED: ${wzLabel} (${wz.changePercent}% changed)`;
+        const wzX = wz.bbox.x0 * scale + 6;
+        const wzY = wz.bbox.y0 * scale + 18;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+        ctx.fillRect(wzX - 3, wzY - 13, ctx.measureText(wzText).width + 6, 17);
+        ctx.fillStyle = '#FF8A8A';
+        ctx.fillText(wzText, wzX, wzY);
       }
 
       // Overlay: least-affected zone = green translucent box with label.
@@ -157,10 +162,15 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.strokeStyle = '#10B981';
         ctx.lineWidth = 2;
         ctx.strokeRect(least.bbox.x0 * scale, least.bbox.y0 * scale, (least.bbox.x1 - least.bbox.x0) * scale, (least.bbox.y1 - least.bbox.y0) * scale);
-        ctx.fillStyle = '#10B981';
         ctx.font = 'bold 13px ui-monospace, monospace';
         const leastLabel = namesRef.current.get(least.name) ?? least.name;
-        ctx.fillText(`LEAST AFFECTED: ${leastLabel} (${least.changePercent}% changed)`, least.bbox.x0 * scale + 6, least.bbox.y1 * scale - 8);
+        const leastText = `LEAST AFFECTED: ${leastLabel} (${least.changePercent}% changed)`;
+        const leastX = least.bbox.x0 * scale + 6;
+        const leastY = least.bbox.y1 * scale - 8;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+        ctx.fillRect(leastX - 3, leastY - 13, ctx.measureText(leastText).width + 6, 17);
+        ctx.fillStyle = '#6EE7B7';
+        ctx.fillText(leastText, leastX, leastY);
       }
 
       // Overlay: predicted next-step zone (T3) — dashed purple box
@@ -180,11 +190,15 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
         ctx.fillRect(pb.x0 * scale, pb.y0 * scale, (pb.x1 - pb.x0) * scale, (pb.y1 - pb.y0) * scale);
-        ctx.fillStyle = '#C084FC';
         ctx.font = 'bold 13px ui-monospace, monospace';
         const predLabel = pred.predictedZoneName ?? `${pred.direction} (${pred.predictedChangePercent.toFixed(1)}%)`;
+        const predText = `PREDICTED T3: ${predLabel}`;
         const labelY = overlapsWorst ? pb.y1 * scale - 8 : pb.y0 * scale + 18;
-        ctx.fillText(`PREDICTED T3: ${predLabel}`, pb.x0 * scale + 6, labelY);
+        const predX = pb.x0 * scale + 6;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+        ctx.fillRect(predX - 3, labelY - 13, ctx.measureText(predText).width + 6, 17);
+        ctx.fillStyle = '#D8B4FE';
+        ctx.fillText(predText, predX, labelY);
       }
     };
     img.src = fresh.dataUrl;
