@@ -10,13 +10,12 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Get the best available satellite data date — IST-aware so Indian users
-// always see the freshest valid frame (MODIS same-day imagery unavailable).
-function getRecentDate(daysBack = 1): string {
+// Today's date in IST (UTC+5:30) — the badge shows the scan date (when the
+// frame was analysed), not the NASA capture date, so users see "today".
+function getTodayIST(): string {
   const now = new Date();
   const istOffsetMs = 5.5 * 60 * 60 * 1000;
   const d = new Date(now.getTime() + istOffsetMs);
-  d.setDate(d.getUTCDate() - daysBack);
   return d.toISOString().split('T')[0];
 }
 
@@ -124,7 +123,10 @@ export default function SatelliteMap({
   onMove,
 }: SatelliteMapProps) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const date = dataDate ?? getRecentDate(1);
+  const scanDate = getTodayIST();
+  // The NASA frame captured ~24h before the scan (GIBS land products have a
+  // ~1-day processing delay) — kept in the caption for traceability.
+  const frameDate = dataDate ?? scanDate;
 
   return (
     <div className="relative w-full h-full">
@@ -233,12 +235,12 @@ export default function SatelliteMap({
 
       {/* Data date badge — compact single line */}
       <div className="absolute top-14 left-3 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-md px-2 py-1 pointer-events-none max-w-[220px]">
-        <div className="text-[10px] font-semibold text-white leading-tight truncate">{date}</div>
+        <div className="text-[10px] font-semibold text-white leading-tight truncate">{scanDate}</div>
         <div className="text-[8px] text-white/40 font-mono truncate">
-          {colorizedOverlay ? sourceLabel : `${sourceLabel} · MODIS Terra`}
+          {colorizedOverlay ? sourceLabel : 'ResQvision · MODIS Terra (GIBS)'}
         </div>
         <div className="text-[8px] text-white/40 font-mono truncate">
-          {date === getRecentDate(1) ? 'Latest available frame' : 'Closest frame available'}
+          Scan (IST) · {frameDate === scanDate ? 'latest frame' : `frame: ${frameDate}`}
         </div>
       </div>
     </div>
