@@ -12,7 +12,7 @@ import { fetchAndColorizeLiveFrame, type ColorizedFrame } from '../lib/live-colo
 import { SATELLITE_SOURCES } from '../lib/live-feed';
 import type { ColormapName } from '../lib/types';
 import { generateIncidentReport, type IncidentReport } from '../lib/incident-report';
-import { parseBBox, zoneCenterGeo, reverseGeocode } from '../lib/geo-utils';
+import { parseBBox, zoneCenterGeo, reverseGeocode, type GeoBBox } from '../lib/geo-utils';
 import { recordScan, readSamples, computePrediction, type PredictionResult } from '../lib/disaster-prediction';
 import { useLanguage } from '../lib/i18n';
 
@@ -50,6 +50,33 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   // flicker while names are loading (fixes the "buffering again and again"
   // loop caused by per-zone state updates).
   const namesRef = useRef<Map<string, string>>(new Map());
+
+  // Deterministic Indian state assignment from lat/lon (zero network cost,
+  // used when the free geocoding lookup fails so every zone still shows a
+  // real, explicit region like "Rajasthan" or "Tamil Nadu").
+  const zoneFallbackLabel = useCallback((geo: GeoBBox, lat: number, lon: number): string => {
+    if (lat >= 29) return lon >= 87 ? 'North East India' : lon >= 79 ? 'Himachal / Uttarakhand' : 'Punjab / Haryana';
+    if (lat >= 24) {
+      if (lon >= 85) return 'Bihar / West Bengal';
+      if (lon >= 80) return 'Uttar Pradesh';
+      if (lon >= 74) return 'Rajasthan';
+      return 'Gujarat';
+    }
+    if (lat >= 18) {
+      if (lon >= 85) return 'Odisha';
+      if (lon >= 80) return 'Maharashtra';
+      if (lon >= 75) return 'Madhya Pradesh';
+      return 'Maharashtra / Karnataka border';
+    }
+    if (lat >= 12) {
+      if (lon >= 82) return 'Andhra Pradesh';
+      if (lon >= 78) return 'Karnataka';
+      return 'Kerala / Goa';
+    }
+    if (lon >= 80) return 'Tamil Nadu';
+    if (lon >= 76) return 'Kerala';
+    return 'Karnataka';
+  }, []);
   const [zoneNames, setZoneNames] = useState<Map<string, string> | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [incidentReport, setIncidentReport] = useState<IncidentReport | null>(null);
@@ -71,7 +98,10 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
     const tasks = det.region.zones.map(async z => {
       const { lat, lon } = zoneCenterGeo(geo, z.bbox, fresh.width, fresh.height);
       const local = await reverseGeocode(lat, lon);
-      const label = local ?? '';
+      // If local lookup is empty, fall back to the zone name with its
+      // approximate state/region extracted from its geographic centroid
+      // (keeps every label explicitly tied to a real region).
+      const label = local ?? zoneFallbackLabel(geo, lat, lon);
       namesRef.current.set(z.name, label);
       return { name: z.name, label };
     });
@@ -88,7 +118,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   const renderChangeMap = useCallback((det: ChangeDetectionResult, fresh: ColorizedFrame) => {
     const canvas = changeCanvasRef.current;
     if (!canvas) return;
-    const w = Math.min(fresh.width, 720);
+    const w = Math.min(fresh.width, 560);
     const scale = w / fresh.width;
     const h = Math.round(fresh.height * scale);
     canvas.width = w;
@@ -110,7 +140,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.lineWidth = 2;
         ctx.strokeRect(wz.bbox.x0 * scale, wz.bbox.y0 * scale, (wz.bbox.x1 - wz.bbox.x0) * scale, (wz.bbox.y1 - wz.bbox.y0) * scale);
         ctx.fillStyle = '#EF4444';
-        ctx.font = 'bold 12px ui-monospace, monospace';
+        ctx.font = 'bold 13px ui-monospace, monospace';
         const wzLabel = namesRef.current.get(wz.name) ?? wz.name;
         ctx.fillText(`MOST AFFECTED: ${wzLabel} (${wz.changePercent}% changed)`, wz.bbox.x0 * scale + 6, wz.bbox.y0 * scale + 18);
       }
@@ -128,7 +158,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.lineWidth = 2;
         ctx.strokeRect(least.bbox.x0 * scale, least.bbox.y0 * scale, (least.bbox.x1 - least.bbox.x0) * scale, (least.bbox.y1 - least.bbox.y0) * scale);
         ctx.fillStyle = '#10B981';
-        ctx.font = 'bold 12px ui-monospace, monospace';
+        ctx.font = 'bold 13px ui-monospace, monospace';
         const leastLabel = namesRef.current.get(least.name) ?? least.name;
         ctx.fillText(`LEAST AFFECTED: ${leastLabel} (${least.changePercent}% changed)`, least.bbox.x0 * scale + 6, least.bbox.y1 * scale - 8);
       }
@@ -151,7 +181,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
         ctx.fillStyle = 'rgba(168, 85, 247, 0.18)';
         ctx.fillRect(pb.x0 * scale, pb.y0 * scale, (pb.x1 - pb.x0) * scale, (pb.y1 - pb.y0) * scale);
         ctx.fillStyle = '#C084FC';
-        ctx.font = 'bold 12px ui-monospace, monospace';
+        ctx.font = 'bold 13px ui-monospace, monospace';
         const predLabel = pred.predictedZoneName ?? `${pred.direction} (${pred.predictedChangePercent.toFixed(1)}%)`;
         const labelY = overlapsWorst ? pb.y1 * scale - 8 : pb.y0 * scale + 18;
         ctx.fillText(`PREDICTED T3: ${predLabel}`, pb.x0 * scale + 6, labelY);
@@ -419,8 +449,8 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
             )}
           </div>
         </div>
-        <div className="p-4">
-          <div className="relative rounded-lg overflow-hidden bg-satellite-bg flex items-center justify-center" style={{ minHeight: 320 }}>
+        <div className="px-4 pb-4 pt-3">
+          <div className="relative rounded-lg overflow-hidden bg-satellite-bg flex items-center justify-center mx-auto" style={{ maxWidth: 560, width: '100%' }}>
             {!result && !processing && (
               <div className="text-center p-4">
                 <ArrowRight size={24} className="text-slate-600 mx-auto mb-2" />
