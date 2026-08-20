@@ -48,7 +48,11 @@ export function zoneCenterGeo(
   return { lat, lon };
 }
 
-/** Nominatim reverse-geocode with localStorage caching and polite 1s spacing. */
+/**
+ * Nominatim reverse-geocode with localStorage caching.
+ * Rate limiting is handled by a lightweight queue (see below) — this
+ * function just does the lookup and caching.
+ */
 let lastNominatimCall = 0;
 export async function reverseGeocode(
   lat: number,
@@ -58,13 +62,10 @@ export async function reverseGeocode(
   const cached = localStorage.getItem(key);
   if (cached) return cached === 'null' ? null : cached;
 
-  try {
-    // Respect Nominatim's usage policy (<=1 req/s).
-    const now = Date.now();
-    const wait = Math.max(0, 1050 - (now - lastNominatimCall));
-    if (wait > 0) await new Promise(r => setTimeout(r, wait));
-    lastNominatimCall = Date.now();
+  // Wait for our turn in the staggered queue (1s apart)
+  await waitForSlot();
 
+  try {
     const url =
       `https://nominatim.openstreetmap.org/reverse?format=json` +
       `&lat=${lat}&lon=${lon}&zoom=11&addressdetails=1` +
@@ -87,6 +88,40 @@ export async function reverseGeocode(
   } catch {
     return null;
   }
+}
+
+/**
+ * Lightweight staggered queue: allows up to 3 concurrent Nominatim calls
+ * spaced 1.05s apart (respecting the usage policy) without blocking all
+ * zones behind a single sequential wait.
+ */
+const MAX_CONCURRENT = 3;
+let activeCalls = 0;
+let callQueue: (() => void)[] = [];
+
+function releaseSlot() {
+  activeCalls--;
+  if (callQueue.length > 0) {
+    const next = callQueue.shift()!;
+    next();
+  }
+}
+
+function waitForSlot(): Promise<void> {
+  return new Promise(resolve => {
+    if (activeCalls < MAX_CONCURRENT) {
+      activeCalls++;
+      // Schedule release after 1.05s
+      setTimeout(releaseSlot, 1050);
+      resolve();
+    } else {
+      callQueue.push(() => {
+        activeCalls++;
+        setTimeout(releaseSlot, 1050);
+        resolve();
+      });
+    }
+  });
 }
 
 /**

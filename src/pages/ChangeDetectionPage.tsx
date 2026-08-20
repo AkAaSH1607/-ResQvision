@@ -56,24 +56,28 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [predictionLoading, setPredictionLoading] = useState(false);
   const frameDimRef = useRef<{ width: number; height: number } | null>(null);
-  const lastDrawnFrameRef = useRef<string | null>(null);
 
-  // Resolve human-readable local names for every zone (cached in localStorage
-  // so only the first lookup per scan triggers a network call)
+  // Resolve human-readable local names for ALL zones in parallel (cached in
+  // localStorage so only the first lookup per zone triggers a network call).
   const resolveZoneNames = useCallback(async (det: ChangeDetectionResult, fresh: ColorizedFrame) => {
     if (!det.region || det.region.zones.length === 0) return;
     const source = SATELLITE_SOURCES[0];
     const geo = parseBBox(source.bbox);
     if (!geo) return;
-    // Fill the ref incrementally (map overlays read from the ref directly),
-    // then commit exactly ONE React state update when every zone is done.
+    // Resolve ALL zones in parallel (Promise.allSettled), filling the ref
+    // incrementally so the map overlays show names as they resolve, then
+    // commit ONE React state update at the end.
     const map = new Map<string, string>();
-    for (const z of det.region.zones) {
+    const tasks = det.region.zones.map(async z => {
       const { lat, lon } = zoneCenterGeo(geo, z.bbox, fresh.width, fresh.height);
       const local = await reverseGeocode(lat, lon);
-      const label = local ? `${local} (${z.name})` : z.name;
-      map.set(z.name, label);
+      const label = local ?? '';
       namesRef.current.set(z.name, label);
+      return { name: z.name, label };
+    });
+    const results = await Promise.allSettled(tasks);
+    for (const r of results) {
+      if (r.status === 'fulfilled') map.set(r.value.name, r.value.label);
     }
     setZoneNames(new Map(map));
   }, []);
@@ -82,11 +86,6 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
   const renderChangeMap = useCallback((det: ChangeDetectionResult, fresh: ColorizedFrame) => {
     const canvas = changeCanvasRef.current;
     if (!canvas) return;
-    // Guard: if nothing changed (same frame + same result zones), don't
-    // redraw — stops the map "buffering" again and again on React re-renders.
-    const drawKey = `${fresh.dataUrl.length}|${det.changedPixels}|${det.region?.worstZone?.changePercent ?? -1}`;
-    if (lastDrawnFrameRef.current === drawKey) return;
-    lastDrawnFrameRef.current = drawKey;
     const w = Math.min(fresh.width, 720);
     const scale = w / fresh.width;
     const h = Math.round(fresh.height * scale);
@@ -188,7 +187,6 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
       // Also run region analysis for the UI breakdown (auto path uses severity-only alerts)
       if (autoReport) {
         const det = autoReport.result;
-        lastDrawnFrameRef.current = null; // new scan = fresh draw (clear guard)
         namesRef.current.clear();
         setResult(det);
         setReport(autoReport);
@@ -316,14 +314,15 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
     link.click();
   };
 
-  // Region breakdown labels: prefer the local area name (town + state),
-  // keeping only the most meaningful parts so zones don't look identical.
+  // Region breakdown labels: show the local area name (town + state) so
+  // every zone is clearly distinguishable (e.g. "Rawatbhata, Rajasthan"
+  // instead of raw grid names like "South-Central (S)").
   const shortZoneLabel = (z: { name: string }, map: Map<string, string> | null) => {
-    const full = map?.get(z.name);
-    if (!full) return z.name;
-    // full format: "<local>, <state> (<zone>)" — keep "<local>, <state>"
-    const core = full.replace(/\s*\([^)]*\)\s*$/, '').trim();
-    return core || z.name;
+    const local = map?.get(z.name);
+    if (local) return local; // e.g. "Rawatbhata, Rajasthan"
+    // Fallback: parse the grid name "South-Central (S)" into a readable label
+    const parts = z.name.split(' (');
+    return parts[0] || z.name;
   };
 
   // Download a per-region breakdown report — every zone with its local area
