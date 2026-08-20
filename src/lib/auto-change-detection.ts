@@ -77,10 +77,13 @@ export async function storeFrameForBaseline(payload: {
 }
 
 /**
- * Returns the most recent stored frame row (the automatic "before" image),
- * or null when no baseline exists yet (very first pipeline run).
+ * Returns the automatic "before" image. If the newest stored frame has the
+ * same NASA capture date as `excludeDate`, it picks the next-oldest one so the
+ * comparison is always between genuinely different frames (fixes the
+ * "Comparing 2026-08-19 / 2026-08-19" bug). Returns null when no usable
+ * baseline exists yet (very first pipeline run).
  */
-export async function fetchBaselineFrame(): Promise<{
+export async function fetchBaselineFrame(excludeDate?: string): Promise<{
   id: string;
   fetch_date: string;
   image_url: string;
@@ -90,10 +93,11 @@ export async function fetchBaselineFrame(): Promise<{
     .select('id, fetch_date, image_url')
     .neq('image_url', '')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!data || !data.image_url) return null;
-  return data as { id: string; fetch_date: string; image_url: string };
+    .limit(10);
+  if (!data || data.length === 0) return null;
+  const usable = data.find(r => r.image_url && r.fetch_date !== excludeDate);
+  if (!usable) return null;
+  return usable as { id: string; fetch_date: string; image_url: string };
 }
 
 /** Loads an image from a URL/data URL into ImageData at natural size. */
@@ -150,7 +154,7 @@ export async function runAutoChangeDetection(
   freshFrame: { dataUrl: string; date: string; colormap: ColormapName; intensity: number },
   threshold = AUTO_THRESHOLD
 ): Promise<AutoChangeReport | null> {
-  const baseline = await fetchBaselineFrame();
+  const baseline = await fetchBaselineFrame(freshFrame.date);
   if (!baseline) return null;
 
   const before = await frameToArrays(baseline.image_url, freshFrame.colormap, freshFrame.intensity);

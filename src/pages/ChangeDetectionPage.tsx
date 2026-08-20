@@ -428,7 +428,7 @@ export default function ChangeDetectionPage({ onAlertsChanged }: { onAlertsChang
             <div className="text-[11px] text-slate-500 mt-0.5">
               {phase === 'no-baseline' && t('cd.baselineMsg')}
               {phase === 'building' && t('cd.fetchingMsg')}
-              {phase === 'ready' && report && `${t('cd.comparing')} ${report.currentDate} / ${report.baselineDate}`}
+              {phase === 'ready' && report && `${t('cd.comparing')} NASA frame ${report.currentDate} vs baseline ${report.baselineDate}`}
               {phase === 'error' && errorMessage}
             </div>
           </div>
